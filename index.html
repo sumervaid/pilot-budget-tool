@@ -1258,8 +1258,8 @@ function lineItems() {
     name: "AI use for work",
     explain: "Number of AI-assisted tasks each employee agent attempts per active day. The single biggest cost lever.",
     perTwin: total_steps * c_loop * tool_usage_mult,
-    control: { type: "slider", key: "tasks_per_day", min: 0, max: 10, step: 0.5,
-               fmt: v => v.toFixed(1) + " task" + (v === 1.0 ? "" : "s") + "/day" },
+    control: { type: "slider", key: "tasks_per_day", min: 0, max: 10, step: 1,
+               fmt: v => v + " task" + (v === 1 ? "" : "s") + "/day" },
   });
 
   behaviors.push({
@@ -1532,8 +1532,8 @@ function lineItems() {
   const sq = s.surveys * s.questions_per_survey;
   measurement.push({
     id: "surveys",
-    name: "Survey rounds",
-    explain: `Each round asks ${s.questions_per_survey} questions to every employee agent. Responses feed pattern-finding and summaries.`,
+    name: "Surveys of employee agents",
+    explain: `Pulse surveys administered to every employee agent. Each round asks ${s.questions_per_survey} questions; responses feed pattern-finding and summaries.`,
     perTwin: sq * c_survey,
     control: { type: "slider", key: "surveys", min: 0, max: 24, step: 1,
                fmt: v => v + " round" + (v === 1 ? "" : "s") },
@@ -1915,16 +1915,17 @@ function bindPresets() {
 function autoConfigureForTarget(target) {
   const fb = document.getElementById("reverse-feedback");
 
-  // Step 1: binary search on tasks_per_day (0 to 10) to hit target
+  // Step 1: binary search on tasks_per_day (0 to 10) to hit target.
+  // tasks/day is a whole number, so search and result stay integer.
   let lo = 0, hi = 10;
   for (let i = 0; i < 30; i++) {
-    const mid = Math.round(((lo + hi) / 2) * 10) / 10;
+    const mid = Math.round((lo + hi) / 2);
     state.tasks_per_day = mid;
     const cost = totalPerTwin();
     if (cost > target) hi = mid;
     else lo = mid;
   }
-  state.tasks_per_day = Math.round(lo * 10) / 10;
+  state.tasks_per_day = Math.round(lo);
 
   let finalCost = totalPerTwin();
 
