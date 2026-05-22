@@ -1529,17 +1529,20 @@ function lineItems() {
   // ===== ADVANCED: surveys and interviews =====
   const measurement = [];
 
-  const sq = s.surveys * s.questions_per_survey;
+  // Daily pulse survey: every agent answers a short survey each day of the study.
+  // The slider controls the survey length (questions/day); 0 turns surveys off.
+  const survey_days = s.questions_per_survey > 0 ? s.days : 0;
+  const sq = survey_days * s.questions_per_survey;
   measurement.push({
     id: "surveys",
-    name: "Surveys of employee agents",
-    explain: `Pulse surveys administered to every employee agent. Each round asks ${s.questions_per_survey} questions; responses feed pattern-finding and summaries.`,
+    name: "Daily survey of employee agents",
+    explain: `Every employee agent answers a short pulse survey each day of the study (${s.days} days). The slider sets how many questions per daily survey; set to 0 to turn surveys off. Responses feed pattern-finding and summaries.`,
     perTwin: sq * c_survey,
-    control: { type: "slider", key: "surveys", min: 0, max: 24, step: 1,
-               fmt: v => v + " round" + (v === 1 ? "" : "s") },
+    control: { type: "slider", key: "questions_per_survey", min: 0, max: 15, step: 1,
+               fmt: v => v === 0 ? "off" : v + " question" + (v === 1 ? "" : "s") + "/day" },
   });
 
-  const fb = s.surveys * 24;
+  const fb = sq;
   const theme_per_twin = fb * c_theme / Math.max(1, s.N);
   const exec_per_twin = fb * c_exec / Math.max(1, s.N);
   measurement.push({
@@ -2057,7 +2060,7 @@ function renderNarrative() {
 
   // Paragraph 3: Measurement and extras (simplified)
   const measurement_parts = [];
-  if (s.surveys > 0) measurement_parts.push(`<strong>${s.surveys} ${s.surveys === 1 ? "survey round" : "survey rounds"}</strong>`);
+  if (s.questions_per_survey > 0) measurement_parts.push(`a <strong>daily survey</strong> (${s.questions_per_survey} question${s.questions_per_survey === 1 ? "" : "s"} each)`);
   if (s.interviews > 0) measurement_parts.push(`<strong>${s.interviews} ${s.interviews === 1 ? "open-ended interview" : "open-ended interviews"}</strong>`);
 
   let p3 = "";
