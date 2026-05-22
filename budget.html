@@ -845,6 +845,7 @@ const state = {
   days: 60,
   // Pipeline: what employees go through
   tools: 1,            // distinct AI tools tested
+  all_tools_per_agent: true,   // within-subject: every agent uses every tool (usage scales with tool count)
   rollouts: 1,         // rollout structures (Big Bang / Phased / Opt-In)
   upgrades: 3,         // feature upgrades over time
   framings: 2,         // ways to pitch the change (psychological)
@@ -1106,6 +1107,12 @@ const PRESETS = {
 function lineItems() {
   const s = state;
 
+  // When every agent uses every tool (within-subject), the actual usage costs --
+  // AI use for work, external service calls, and output evaluation -- scale with
+  // the number of tools. When off (workforce split into one-tool-per-group
+  // cohorts), each agent only uses a single tool, so usage does not scale.
+  const tool_usage_mult = s.all_tools_per_agent ? s.tools : 1;
+
   // Per-call costs (internal, not exposed to user)
   const c_narrative   = callCost(s.narrative_model, 3100, 1800);
   const c_state       = callCost(s.scoring_model,   2000, 150);
@@ -1149,6 +1156,18 @@ function lineItems() {
     perTwin: s.tools * c_intervention,
     control: { type: "slider", key: "tools", min: 0, max: 8, step: 1,
                fmt: v => v + " tool" + (v === 1 ? "" : "s") },
+  });
+
+  pipeline.push({
+    id: "all_tools_per_agent",
+    name: "Every agent uses every tool",
+    explain: s.all_tools_per_agent
+      ? `On (within-subject): each employee agent uses all ${s.tools} ${s.tools === 1 ? "tool" : "tools"}, so AI use for work, external service calls, and output evaluation scale with the number of tools. Turn off if you instead split the workforce into separate groups, one tool per group.`
+      : `Off (between-subject): the workforce is split into groups, each group using one tool. Per-agent usage reflects a single tool; raise the number of agents for statistical power. Turn on if every agent should use every tool.`,
+    perTwin: 0,
+    control: { type: "toggle", key: "all_tools_per_agent" },
+    cost_hidden: true,
+    cost_ref: s.all_tools_per_agent ? `usage ×${s.tools}` : "1 tool per agent",
   });
 
   pipeline.push({
@@ -1198,7 +1217,7 @@ function lineItems() {
     id: "ai_intensity",
     name: "AI use for work",
     explain: "Number of AI-assisted tasks each employee agent attempts per active day. The single biggest cost lever.",
-    perTwin: total_steps * c_loop,
+    perTwin: total_steps * c_loop * tool_usage_mult,
     control: { type: "slider", key: "tasks_per_day", min: 0, max: 10, step: 0.5,
                fmt: v => v.toFixed(1) + " task" + (v === 1.0 ? "" : "s") + "/day" },
   });
@@ -1260,7 +1279,7 @@ function lineItems() {
     id: "ai_tools",
     name: "External AI service calls",
     explain: "When the AI uses web search, file lookup, or code execution to complete a task. Each external call has its own fee.",
-    perTwin: tool_fee,
+    perTwin: tool_fee * tool_usage_mult,
     control: { type: "slider", key: "builtin_per_task", min: 0, max: 2, step: 0.1,
                fmt: v => v.toFixed(1) + " calls/task" },
   });
@@ -1275,8 +1294,8 @@ function lineItems() {
     id: "output_eval",
     name: "Output quality evaluation",
     explain: "Third-party LLM rates each sampled task output on correctness, tool-use efficiency, and alignment. Required for validating agent behavior against real telemetry and for differentiating between AI tools in comparison studies.",
-    perTwin: eval_cost_per_twin,
-    perTwinIfOn: total_tasks * s.output_eval_rate * c_eval,
+    perTwin: eval_cost_per_twin * tool_usage_mult,
+    perTwinIfOn: total_tasks * s.output_eval_rate * c_eval * tool_usage_mult,
     control: { type: "toggle", key: "output_eval_on" },
     disabled: !s.output_eval_on,
   });
