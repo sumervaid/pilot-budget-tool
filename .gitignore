@@ -3,3 +3,7 @@
 Thumbs.db
 ~$*
 .~lock.*
+
+# Internal docs — never publish (exposes cost assumptions / margins)
+COST_MODEL_AUDIT.md
+*_AUDIT.md
