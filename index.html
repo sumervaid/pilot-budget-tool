@@ -683,14 +683,14 @@
       <input type="range" class="scope-slider" id="ip-N" min="50" max="1000" step="25" value="250">
     </div>
     <div class="scope-item">
-      <label>How long the simulation runs</label>
-      <div class="scope-val"><span id="sv-days">60</span><span class="unit">days each</span></div>
+      <label>Total Simulation Duration</label>
+      <div class="scope-val"><span id="sv-days">60</span><span class="unit">days total</span></div>
       <input type="range" class="scope-slider" id="ip-days" min="14" max="365" step="1" value="60">
     </div>
     <div class="scope-item">
-      <label>Active work days (days agents actually use AI)</label>
-      <div class="scope-val"><span id="sv-active">45</span><span class="unit">of those days</span></div>
-      <input type="range" class="scope-slider" id="ip-active" min="1" max="60" step="1" value="45">
+      <label>Rollout timing (baseline vs. tool live)</label>
+      <div class="scope-val"><span id="sv-active">45</span><span class="unit" id="sv-active-unit">days post-rollout · 15 baseline</span></div>
+      <input type="range" class="scope-slider" id="ip-active" min="0" max="60" step="1" value="45">
     </div>
   </div>
 
@@ -1790,13 +1790,23 @@ function setFill(el) {
 // The active-days slider is always capped at the study length. Keep its max,
 // value, label, and fill in sync with state (called on init and whenever days,
 // a preset, or the budget auto-configure changes the scope).
+// Show the rollout split: post-rollout (tool-live) days as the headline number,
+// with the remaining baseline days called out. active_days IS the post-rollout
+// window -- the days agents actually use the tool. Baseline = total - post.
+function updateRolloutLabel() {
+  const pre = Math.max(0, state.days - state.active_days);
+  document.getElementById("sv-active").textContent = state.active_days;
+  const unit = document.getElementById("sv-active-unit");
+  if (unit) unit.textContent = `days post-rollout · ${pre} baseline`;
+}
+
 function syncActiveSlider() {
   const ipActive = document.getElementById("ip-active");
   if (!ipActive) return;
   if (state.active_days > state.days) state.active_days = state.days;
   ipActive.max = state.days;
   ipActive.value = state.active_days;
-  document.getElementById("sv-active").textContent = state.active_days;
+  updateRolloutLabel();
   setFill(ipActive);
 }
 
@@ -1820,7 +1830,7 @@ function bindScope() {
   });
   ipActive.addEventListener("input", e => {
     state.active_days = Math.min(parseInt(e.target.value), state.days);
-    document.getElementById("sv-active").textContent = state.active_days;
+    updateRolloutLabel();
     setFill(ipActive);
     renderSections(); renderTotals();
   });
@@ -1967,7 +1977,7 @@ function renderNarrative() {
   const paragraphs = [];
 
   // Paragraph 1: Scope + pipeline (natural reading order)
-  let p1 = `The simulation covers <strong>${s.N} employee agents</strong> over <strong>${s.days} days</strong>.`;
+  let p1 = `The simulation covers <strong>${s.N} employee agents</strong> over <strong>${s.days} days</strong> — <strong>${Math.max(0, s.days - s.active_days)} baseline days</strong> before rollout, then <strong>${s.active_days} days</strong> with the tool live.`;
 
   const pipelineActions = [];
   if (s.framings > 0) {
