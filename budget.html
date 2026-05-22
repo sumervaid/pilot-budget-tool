@@ -1892,6 +1892,9 @@ function bindReverseEstimate() {
 
   btn.addEventListener("click", run);
   input.addEventListener("keypress", e => { if (e.key === "Enter") run(); });
+  // Recalculate when the value is committed (blur or spinner arrows), so editing
+  // the budget updates the estimate without requiring the Auto-configure button.
+  input.addEventListener("change", () => { if (input.value.trim() !== "") run(); });
 }
 
 // =========================================================================
