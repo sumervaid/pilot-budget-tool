@@ -1111,7 +1111,9 @@ function lineItems() {
   // AI use for work, external service calls, and output evaluation -- scale with
   // the number of tools. When off (workforce split into one-tool-per-group
   // cohorts), each agent only uses a single tool, so usage does not scale.
-  const tool_usage_mult = s.all_tools_per_agent ? s.tools : 1;
+  // Only meaningful with 2+ tools: with a single tool there is no within- vs
+  // between-subject distinction, so usage never scales regardless of the toggle.
+  const tool_usage_mult = (s.all_tools_per_agent && s.tools > 1) ? s.tools : 1;
 
   // Per-call costs (internal, not exposed to user)
   const c_narrative   = callCost(s.narrative_model, 3100, 1800);
@@ -1158,16 +1160,20 @@ function lineItems() {
                fmt: v => v + " tool" + (v === 1 ? "" : "s") },
   });
 
+  const multi_tool = s.tools > 1;
   pipeline.push({
     id: "all_tools_per_agent",
     name: "Every agent uses every tool",
-    explain: s.all_tools_per_agent
-      ? `On (within-subject): each employee agent uses all ${s.tools} ${s.tools === 1 ? "tool" : "tools"}, so AI use for work, external service calls, and output evaluation scale with the number of tools. Turn off if you instead split the workforce into separate groups, one tool per group.`
-      : `Off (between-subject): the workforce is split into groups, each group using one tool. Per-agent usage reflects a single tool; raise the number of agents for statistical power. Turn on if every agent should use every tool.`,
+    explain: !multi_tool
+      ? `Only applies when testing 2 or more tools. With a single tool there is no within- vs between-subject distinction, so this setting has no effect.`
+      : (s.all_tools_per_agent
+        ? `On (within-subject): each employee agent uses all ${s.tools} tools, so AI use for work, external service calls, and output evaluation scale with the number of tools. Turn off if you instead split the workforce into separate groups, one tool per group.`
+        : `Off (between-subject): the workforce is split into groups, each group using one tool. Per-agent usage reflects a single tool; raise the number of agents for statistical power. Turn on if every agent should use every tool.`),
     perTwin: 0,
     control: { type: "toggle", key: "all_tools_per_agent" },
     cost_hidden: true,
-    cost_ref: s.all_tools_per_agent ? `usage ×${s.tools}` : "1 tool per agent",
+    disabled: !multi_tool,
+    cost_ref: !multi_tool ? "n/a · 1 tool" : (s.all_tools_per_agent ? `usage ×${s.tools}` : "1 tool per agent"),
   });
 
   pipeline.push({
@@ -1616,6 +1622,8 @@ function renderSection(sectionName, items, container) {
         // Special handling for the images toggle which flips state.images_per_twin
         const on = it.control.key === "_images_toggle"
           ? (state.images_per_twin > 0)
+          : it.control.key === "all_tools_per_agent"
+          ? (state.all_tools_per_agent && state.tools > 1)
           : state[it.control.key];
         ctrlHtml = `
           <div class="item-ctrl">
@@ -1705,6 +1713,7 @@ function attachItemHandlers() {
   document.querySelectorAll('.item-toggle').forEach(el => {
     el.addEventListener("click", () => {
       const k = el.dataset.key;
+      if (k === "all_tools_per_agent" && state.tools <= 1) return; // inert with a single tool
       if (k === "_images_toggle") {
         // Toggle between 0 and 5 images per twin
         state.images_per_twin = state.images_per_twin > 0 ? 0 : 5;
