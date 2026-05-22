@@ -439,14 +439,27 @@
   .item-cost-total .lbl { color: var(--rule-strong); margin-right: 4px; }
 
   /* Grand total */
-  .grand {
-    margin-top: 24px;
-    background: var(--ink); color: var(--bg);
-    padding: 32px 36px;
+  /* Two-column shell: sticky cost panel on the left, scrolling controls right */
+  .layout {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 40px;
-    align-items: center;
+    grid-template-columns: 320px 1fr;
+    gap: 32px;
+    align-items: start;
+    margin-top: 24px;
+  }
+  .cost-panel {
+    position: sticky;
+    top: 20px;
+    align-self: start;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+  }
+  .controls { min-width: 0; }
+  .grand {
+    margin-top: 0;
+    background: var(--ink); color: var(--bg);
+    padding: 26px 24px;
+    display: block;
   }
   .grand-l {}
   .grand-l-label {
@@ -455,7 +468,7 @@
     color: rgba(250,250,247,0.55); margin-bottom: 6px;
   }
   .grand-l-num {
-    font-family: var(--mono); font-size: 48px; font-weight: 600;
+    font-family: var(--mono); font-size: 40px; font-weight: 600;
     color: #F5CC6B; line-height: 1; font-feature-settings: 'tnum';
   }
   .grand-l-sub {
@@ -463,9 +476,10 @@
     color: rgba(250,250,247,0.65); margin-top: 8px;
   }
   .grand-r {
-    border-left: 1px solid rgba(250,250,247,0.15);
-    padding-left: 40px;
-    min-width: 320px;
+    border-top: 1px solid rgba(250,250,247,0.15);
+    padding-top: 18px;
+    margin-top: 18px;
+    min-width: 0;
   }
   .grand-r-h {
     font-size: 10.5px; font-weight: 600;
@@ -660,8 +674,9 @@
     .total-banner { grid-template-columns: 1fr; gap: 16px; padding: 18px 22px; }
     .item { grid-template-columns: 1fr; gap: 10px; padding: 12px 18px; }
     .item-cost { text-align: left; }
-    .grand { grid-template-columns: 1fr; gap: 24px; padding: 24px; }
-    .grand-r { border-left: none; padding-left: 0; padding-top: 20px; border-top: 1px solid rgba(250,250,247,0.15); min-width: 0; }
+    .grand { padding: 24px; }
+    .layout { grid-template-columns: 1fr; gap: 20px; }
+    .cost-panel { position: static; max-height: none; overflow: visible; }
     .ctlbar { flex-direction: column; align-items: flex-start; gap: 12px; }
   }
 </style>
@@ -674,6 +689,28 @@
     <div class="head-l">Workforce Simulation · Budget</div>
     <div class="head-r">Platform v11.5</div>
   </div>
+
+  <div class="layout">
+
+  <!-- Sticky left panel: total study cost -->
+  <aside class="cost-panel">
+    <div class="grand">
+      <div class="grand-l">
+        <div class="grand-l-label">Total study cost</div>
+        <div class="grand-l-num">$<span id="grand-num">1,062</span></div>
+        <div class="grand-l-sub">
+          <span id="grand-per-twin">$4.25</span> per employee agent · ~<span id="grand-wallclock">1 hour</span> wall-clock
+        </div>
+      </div>
+      <div class="grand-r">
+        <div class="grand-r-h">Where the money goes</div>
+        <div id="breakdown"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Right column: all controls (scrolls) -->
+  <main class="controls">
 
   <!-- Scope inputs: just employees + days (the pipeline replaces the rollouts slider) -->
   <div class="scope">
@@ -803,21 +840,6 @@
     <div id="advanced-sections"></div>
   </details>
 
-  <!-- Grand total -->
-  <div class="grand">
-    <div class="grand-l">
-      <div class="grand-l-label">Total study cost</div>
-      <div class="grand-l-num">$<span id="grand-num">1,062</span></div>
-      <div class="grand-l-sub">
-        <span id="grand-per-twin">$4.25</span> per employee agent · ~<span id="grand-wallclock">1 hour</span> wall-clock
-      </div>
-    </div>
-    <div class="grand-r">
-      <div class="grand-r-h">Where the money goes</div>
-      <div id="breakdown"></div>
-    </div>
-  </div>
-
   <!-- Narrative summary -->
   <div class="narrative">
     <div class="narrative-h">What this configuration runs</div>
@@ -826,6 +848,9 @@
 
   <div class="footer">
     Estimates based on current vendor pricing and forecasted usage. Expect roughly ±15% movement on per-employee-agent totals once measured usage replaces these forecasts.
+  </div>
+
+  </main>
   </div>
 
 </div>
@@ -841,6 +866,10 @@ const PRICE = {
 };
 const BUILTIN = { ci: 0.03, fs_1k: 2.50, ws_1k: 10.00, img: 0.04 };
 const callCost = (m, ti, to) => (ti * PRICE[m].in + to * PRICE[m].out) / 1e6;
+
+// Agent reasoning tiers shown in the UI map to underlying models internally.
+// The picker and the rendered DOM only ever show "Advanced" / "Simple".
+const BRAIN_TIER_TO_MODEL = { adv: "gpt-4.1-mini", basic: "gpt-4.1-nano" };
 
 // =========================================================================
 // State
@@ -1265,12 +1294,15 @@ function lineItems() {
 
   ai_tuning.push({
     id: "brain",
-    name: "Agent brain model",
-    explain: "Which model drives the agent's reasoning loop. Locked to gpt-4.1-mini (richer reasoning) or gpt-4.1-nano (≈4× cheaper, suitable for cost-constrained pilots). Premium models are intentionally not available here, to keep agent behavior consistent across the simulation.",
+    name: "Agent reasoning tier",
+    explain: "How much reasoning each agent applies per task. Advanced gives richer multi-step reasoning; Simple is a lighter, lower-cost tier for cost-constrained pilots. Tier is held constant across the simulation to keep agent behavior comparable.",
     perTwin: 0,
     control: {
       type: "model_picker", key: "brain_model",
-      options: ["gpt-4.1-mini", "gpt-4.1-nano"],
+      options: [
+        { label: "Advanced", id: "adv", model: "gpt-4.1-mini" },
+        { label: "Simple", id: "basic", model: "gpt-4.1-nano" },
+      ],
     },
     cost_hidden: true,
     cost_ref: "in AI use for work",
@@ -1638,9 +1670,12 @@ function renderSection(sectionName, items, container) {
         `;
       } else if (it.control.type === "model_picker") {
         const cur = state[it.control.key];
-        const buttons = it.control.options.map(opt =>
-          `<button class="model-pick-btn ${opt === cur ? 'active' : ''}" data-key="${it.control.key}" data-val="${opt}">${opt}</button>`
-        ).join("");
+        // options carry a display label + opaque id; the underlying model is
+        // compared for the active state but never written into the DOM.
+        const buttons = it.control.options.map(opt => {
+          const active = (opt.model || opt) === cur;
+          return `<button class="model-pick-btn ${active ? 'active' : ''}" data-key="${it.control.key}" data-val="${opt.id || opt}">${opt.label || opt}</button>`;
+        }).join("");
         ctrlHtml = `<div class="item-ctrl model-pick-group">${buttons}</div>`;
       }
     }
@@ -1732,7 +1767,8 @@ function attachItemHandlers() {
   document.querySelectorAll('.model-pick-btn').forEach(el => {
     el.addEventListener("click", () => {
       const k = el.dataset.key;
-      state[k] = el.dataset.val;
+      const v = el.dataset.val;
+      state[k] = BRAIN_TIER_TO_MODEL[v] || v;   // map opaque tier id -> model
       renderSections();
       renderTotals();
     });
