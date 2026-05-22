@@ -687,6 +687,11 @@
       <div class="scope-val"><span id="sv-days">60</span><span class="unit">days each</span></div>
       <input type="range" class="scope-slider" id="ip-days" min="14" max="365" step="1" value="60">
     </div>
+    <div class="scope-item">
+      <label>Active work days (days agents actually use AI)</label>
+      <div class="scope-val"><span id="sv-active">45</span><span class="unit">of those days</span></div>
+      <input type="range" class="scope-slider" id="ip-active" min="1" max="60" step="1" value="45">
+    </div>
   </div>
 
   <!-- Quick presets -->
@@ -1782,9 +1787,23 @@ function setFill(el) {
   const pct = ((parseFloat(el.value) - min) / (max - min)) * 100;
   el.style.setProperty('--fill', pct + '%');
 }
+// The active-days slider is always capped at the study length. Keep its max,
+// value, label, and fill in sync with state (called on init and whenever days,
+// a preset, or the budget auto-configure changes the scope).
+function syncActiveSlider() {
+  const ipActive = document.getElementById("ip-active");
+  if (!ipActive) return;
+  if (state.active_days > state.days) state.active_days = state.days;
+  ipActive.max = state.days;
+  ipActive.value = state.active_days;
+  document.getElementById("sv-active").textContent = state.active_days;
+  setFill(ipActive);
+}
+
 function bindScope() {
   const ipN = document.getElementById("ip-N");
   const ipDays = document.getElementById("ip-days");
+  const ipActive = document.getElementById("ip-active");
   ipN.addEventListener("input", e => {
     state.N = parseInt(e.target.value);
     document.getElementById("sv-N").textContent = state.N;
@@ -1796,11 +1815,19 @@ function bindScope() {
     document.getElementById("sv-days").textContent = state.days;
     state.active_days = Math.min(state.active_days, state.days);
     setFill(ipDays);
+    syncActiveSlider();           // active-days max follows study length
+    renderSections(); renderTotals();
+  });
+  ipActive.addEventListener("input", e => {
+    state.active_days = Math.min(parseInt(e.target.value), state.days);
+    document.getElementById("sv-active").textContent = state.active_days;
+    setFill(ipActive);
     renderSections(); renderTotals();
   });
   // Initial fills
   setFill(ipN);
   setFill(ipDays);
+  syncActiveSlider();
 }
 
 function renderPresetCosts() {
@@ -1828,6 +1855,7 @@ function bindPresets() {
       ipDays.value = state.days;
       document.getElementById("sv-days").textContent = state.days;
       setFill(ipN); setFill(ipDays);
+      syncActiveSlider();
       document.querySelectorAll(".preset-btn").forEach(b => b.classList.toggle("active", b === btn));
       renderSections();
       renderTotals();
@@ -1912,6 +1940,7 @@ function bindReverseEstimate() {
     document.getElementById("sv-days").textContent = state.days;
     setFill(document.getElementById("ip-N"));
     setFill(document.getElementById("ip-days"));
+    syncActiveSlider();
     // Clear preset highlight (custom config)
     document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
     renderSections();
