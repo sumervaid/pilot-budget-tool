@@ -1,0 +1,1996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Budget · Workforce Simulation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAFAF7;
+    --bg-2: #F2EFE7;
+    --ink: #141312;
+    --ink-2: #56524C;
+    --ink-3: #8B867D;
+    --rule: #DDD8CB;
+    --rule-strong: #BFB8A6;
+    --accent: #A52A2A;
+    --accent-2: #C0392B;
+    --green: #2D6A4F;
+    --sans: 'Inter Tight', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg); color: var(--ink); font-family: var(--sans);
+    font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv11';
+  }
+  .frame { max-width: 1100px; margin: 0 auto; padding: 28px 36px 80px; }
+
+  /* Header */
+  .head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-bottom: 12px; border-bottom: 1.5px solid var(--ink);
+    margin-bottom: 24px;
+  }
+  .head-l { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .head-r { font-family: var(--mono); font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.16em; }
+
+  /* Scope inputs - now just 2: employees + days */
+  .scope {
+    background: var(--bg-2); border: 1px solid var(--rule);
+    padding: 22px 26px; margin-bottom: 16px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
+  .scope-item label {
+    display: block; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink-2); margin-bottom: 8px;
+  }
+  .scope-val {
+    font-family: var(--mono); font-size: 26px; font-weight: 500;
+    color: var(--ink); margin-bottom: 4px; line-height: 1;
+    font-feature-settings: 'tnum';
+  }
+  .scope-val .unit {
+    font-family: var(--sans); font-size: 13px; color: var(--ink-3);
+    font-weight: 400; margin-left: 6px;
+  }
+  .scope-slider {
+    width: 100%; height: 6px; -webkit-appearance: none; appearance: none;
+    background: linear-gradient(
+      to right,
+      var(--accent) 0%,
+      var(--accent) var(--fill, 0%),
+      var(--rule) var(--fill, 0%),
+      var(--rule) 100%
+    );
+    border-radius: 3px;
+    cursor: pointer; margin-top: 6px; outline: none;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.12);
+  }
+  .scope-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 24px; height: 24px;
+    background: radial-gradient(circle at 35% 30%, #C04340 0%, var(--accent) 55%, #7A1F1F 100%);
+    border: 2px solid var(--bg); border-radius: 50%;
+    cursor: grab;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.18),
+      0 2px 5px rgba(0,0,0,0.3),
+      inset 0 -1px 2px rgba(0,0,0,0.25);
+    transition: transform 0.1s ease;
+  }
+  .scope-slider::-webkit-slider-thumb:hover { transform: scale(1.08); }
+  .scope-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(0.95); }
+  .scope-slider::-moz-range-thumb {
+    width: 24px; height: 24px;
+    background: radial-gradient(circle at 35% 30%, #C04340 0%, var(--accent) 55%, #7A1F1F 100%);
+    border: 2px solid var(--bg); border-radius: 50%;
+    cursor: grab;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.18),
+      0 2px 5px rgba(0,0,0,0.3),
+      inset 0 -1px 2px rgba(0,0,0,0.25);
+  }
+
+  /* Quality + presets bar */
+  .ctlbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0; margin-bottom: 8px;
+  }
+  .ctlbar-l { display: flex; align-items: center; gap: 16px; }
+  .ctlbar-r { display: flex; align-items: center; gap: 8px; }
+  .ctlbar-label {
+    font-size: 12px; font-weight: 600; color: var(--ink-2);
+    text-transform: uppercase; letter-spacing: 0.12em;
+  }
+  .seg {
+    display: inline-flex; border: 1px solid var(--rule-strong);
+    border-radius: 2px; overflow: hidden;
+  }
+  .seg button {
+    background: var(--bg); border: none; padding: 6px 14px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-2);
+    cursor: pointer; border-right: 1px solid var(--rule-strong);
+    transition: all 0.15s ease; font-weight: 500;
+    white-space: nowrap;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button:hover { background: var(--bg-2); color: var(--ink); }
+  .seg button.active { background: var(--ink); color: var(--bg); }
+  /* Preset row + multi-line button cards */
+  .preset-ctlbar {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .preset-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: 100%;
+  }
+  .preset-btn {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+    background: var(--bg-2);
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+    padding: 11px 13px;
+    font-family: var(--sans);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .preset-btn:hover {
+    background: var(--bg);
+    border-color: var(--ink-3);
+  }
+  .preset-btn.active {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--bg);
+  }
+  .preset-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  .preset-meta {
+    font-size: 11px;
+    color: var(--ink-3);
+    font-weight: 400;
+    line-height: 1.3;
+  }
+  .preset-btn.active .preset-meta {
+    color: rgba(250, 250, 247, 0.6);
+  }
+  .preset-cost {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-2);
+    margin-top: 3px;
+    font-feature-settings: 'tnum';
+  }
+  .preset-btn.active .preset-cost {
+    color: var(--bg);
+    opacity: 0.85;
+  }
+
+  /* Reverse-estimator (set a budget) */
+  .reverse-bar { margin-top: -4px; margin-bottom: 18px; }
+  .reverse-row {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .reverse-prefix {
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    color: var(--ink-2); margin-right: -2px;
+  }
+  #ip-target {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--bg-2); border: 1px solid var(--rule-strong);
+    border-radius: 2px; padding: 5px 10px;
+    width: 130px; color: var(--ink); outline: none;
+    transition: border-color 0.15s ease;
+  }
+  #ip-target:focus { border-color: var(--ink); background: var(--bg); }
+  #btn-reverse {
+    font-family: var(--sans); font-size: 11.5px; font-weight: 500;
+    background: var(--ink); color: var(--bg); border: 1px solid var(--ink);
+    padding: 6px 12px; border-radius: 2px; cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  #btn-reverse:hover { opacity: 0.85; }
+  .reverse-feedback {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-3);
+    margin-left: 8px;
+  }
+  .reverse-feedback.active { color: var(--green); }
+  .reverse-feedback.fail { color: var(--accent); }
+
+  /* Narrative summary */
+  .narrative {
+    margin: 26px 0 16px;
+    padding: 22px 26px;
+    background: var(--bg-2);
+    border-left: 3px solid var(--ink);
+  }
+  .narrative-h {
+    font-family: var(--sans); font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink); margin-bottom: 10px;
+  }
+  .narrative-body {
+    font-family: var(--sans); font-size: 13.5px; line-height: 1.65;
+    color: var(--ink); max-width: 880px;
+  }
+  .narrative-body p { margin: 0 0 9px; }
+  .narrative-body p:last-child { margin-bottom: 0; }
+  .narrative-body strong {
+    font-weight: 600; color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: rgba(245, 204, 107, 0.85);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+
+  /* Big total banner */
+  .total-banner {
+    background: var(--ink); color: var(--bg);
+    padding: 24px 30px; margin: 16px 0 24px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 32px; align-items: baseline;
+  }
+  .tb-item {}
+  .tb-label {
+    font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.16em;
+    color: rgba(250,250,247,0.55); margin-bottom: 8px;
+  }
+  .tb-big {
+    font-family: var(--mono); font-size: 36px; font-weight: 500;
+    line-height: 1; font-feature-settings: 'tnum';
+    transition: color 0.15s ease;
+  }
+  .tb-big .sub {
+    font-size: 14px; font-weight: 400;
+    color: rgba(250,250,247,0.5); margin-left: 6px;
+  }
+  .tb-item.accent .tb-big { color: #F5CC6B; }
+  .tb-item.subtle .tb-big { color: rgba(250,250,247,0.85); font-size: 22px; }
+
+  /* Section */
+  .section {
+    margin-bottom: 8px;
+    border: 1px solid var(--rule);
+    background: var(--bg);
+  }
+  .section-h {
+    background: var(--bg-2);
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--rule);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .section-h-name {
+    font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink);
+  }
+  .section-h-cost {
+    font-family: var(--mono); font-size: 13px; font-weight: 500;
+    color: var(--ink-2);
+    font-feature-settings: 'tnum';
+  }
+  .section-h-cost .total {
+    color: var(--ink); margin-left: 12px;
+  }
+
+  /* Line items */
+  .item {
+    display: grid;
+    grid-template-columns: 1fr 290px 130px;
+    align-items: center;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--rule);
+    gap: 24px;
+  }
+  .item:last-child { border-bottom: none; }
+  .item.disabled { opacity: 0.55; }
+  .item.disabled .item-cost-val { color: var(--ink-3); }
+
+  .item-desc {}
+  .item-name {
+    font-size: 14px; font-weight: 600; color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .item-explain {
+    font-size: 12.5px; color: var(--ink-2); line-height: 1.5;
+    margin-bottom: 4px;
+  }
+  .item-formula {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+    font-feature-settings: 'tnum';
+  }
+  .item-formula .x { color: var(--rule-strong); margin: 0 2px; }
+
+  /* Inline controls */
+  .item-ctrl {
+    display: flex; align-items: center; gap: 10px;
+    justify-content: flex-start;
+  }
+  .item-slider {
+    flex: 1; min-width: 110px; max-width: 170px;
+    height: 6px; -webkit-appearance: none; appearance: none;
+    background: linear-gradient(
+      to right,
+      var(--accent) 0%,
+      var(--accent) var(--fill, 0%),
+      var(--rule) var(--fill, 0%),
+      var(--rule) 100%
+    );
+    border-radius: 3px;
+    cursor: pointer; outline: none;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.12);
+  }
+  .item-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 22px; height: 22px;
+    background: radial-gradient(circle at 35% 30%, #C04340 0%, var(--accent) 55%, #7A1F1F 100%);
+    border: 2px solid var(--bg); border-radius: 50%;
+    cursor: grab;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.18),
+      0 2px 4px rgba(0,0,0,0.28),
+      inset 0 -1px 2px rgba(0,0,0,0.25);
+    transition: transform 0.1s ease;
+  }
+  .item-slider::-webkit-slider-thumb:hover { transform: scale(1.08); }
+  .item-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(0.95); }
+  .item-slider::-moz-range-thumb {
+    width: 22px; height: 22px;
+    background: radial-gradient(circle at 35% 30%, #C04340 0%, var(--accent) 55%, #7A1F1F 100%);
+    border: 2px solid var(--bg); border-radius: 50%;
+    cursor: grab;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.18),
+      0 2px 4px rgba(0,0,0,0.28),
+      inset 0 -1px 2px rgba(0,0,0,0.25);
+  }
+  .item-slider-val {
+    font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+    color: var(--ink); min-width: 76px; text-align: left;
+    font-feature-settings: 'tnum';
+  }
+
+  .item-toggle {
+    position: relative; width: 48px; height: 26px;
+    background: var(--rule-strong); border-radius: 13px;
+    cursor: pointer; transition: background 0.2s ease; flex-shrink: 0;
+    box-shadow:
+      inset 0 1px 3px rgba(0,0,0,0.2),
+      inset 0 -1px 0 rgba(255,255,255,0.4);
+  }
+  .item-toggle::after {
+    content: ""; position: absolute; width: 20px; height: 20px;
+    background: radial-gradient(circle at 35% 30%, #FFFFFF 0%, #F4F1E5 70%, #DDD8CB 100%);
+    border-radius: 50%; top: 3px; left: 3px;
+    transition: transform 0.2s ease;
+    box-shadow:
+      0 0 0 0.5px rgba(0,0,0,0.12),
+      0 2px 4px rgba(0,0,0,0.28),
+      inset 0 -1px 1px rgba(0,0,0,0.08);
+  }
+  .item-toggle.on { background: var(--green); }
+  .item-toggle.on::after { transform: translateX(22px); }
+  .item-toggle-label {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+    color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.12em;
+    min-width: 26px;
+  }
+
+  .item-ctrl.none {
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+
+  /* Model picker (inline segmented buttons in line items) */
+  .model-pick-group {
+    display: inline-flex !important;
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px; overflow: hidden;
+  }
+  .model-pick-btn {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    background: var(--bg); color: var(--ink-2);
+    border: none; border-right: 1px solid var(--rule-strong);
+    padding: 5px 10px; cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+  }
+  .model-pick-btn:last-child { border-right: none; }
+  .model-pick-btn:hover { background: var(--bg-2); color: var(--ink); }
+  .model-pick-btn.active {
+    background: var(--ink); color: var(--bg);
+  }
+
+  /* Cost column */
+  .item-cost {
+    text-align: right;
+    font-feature-settings: 'tnum';
+  }
+  .item-cost-val {
+    font-family: var(--mono); font-size: 15px; font-weight: 600;
+    color: var(--ink); line-height: 1.1;
+    transition: color 0.15s ease;
+  }
+  .item-cost-total {
+    font-family: var(--mono); font-size: 12px; color: var(--ink-3);
+    margin-top: 4px;
+  }
+  .item-cost-total .lbl { color: var(--rule-strong); margin-right: 4px; }
+
+  /* Grand total */
+  .grand {
+    margin-top: 24px;
+    background: var(--ink); color: var(--bg);
+    padding: 32px 36px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 40px;
+    align-items: center;
+  }
+  .grand-l {}
+  .grand-l-label {
+    font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    color: rgba(250,250,247,0.55); margin-bottom: 6px;
+  }
+  .grand-l-num {
+    font-family: var(--mono); font-size: 48px; font-weight: 600;
+    color: #F5CC6B; line-height: 1; font-feature-settings: 'tnum';
+  }
+  .grand-l-sub {
+    font-family: var(--mono); font-size: 14px;
+    color: rgba(250,250,247,0.65); margin-top: 8px;
+  }
+  .grand-r {
+    border-left: 1px solid rgba(250,250,247,0.15);
+    padding-left: 40px;
+    min-width: 320px;
+  }
+  .grand-r-h {
+    font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.16em;
+    color: rgba(250,250,247,0.55); margin-bottom: 12px;
+  }
+  .breakdown-row {
+    display: grid; grid-template-columns: 1fr 70px 50px;
+    align-items: center; gap: 12px;
+    padding: 6px 0; font-size: 12.5px;
+    color: rgba(250,250,247,0.85);
+  }
+  .breakdown-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .breakdown-val {
+    font-family: var(--mono); text-align: right;
+    color: var(--bg); font-feature-settings: 'tnum';
+  }
+  .breakdown-pct {
+    font-family: var(--mono); text-align: right; font-size: 11px;
+    color: rgba(250,250,247,0.5); font-feature-settings: 'tnum';
+  }
+  .breakdown-bar-track {
+    grid-column: 1 / -1; height: 2px;
+    background: rgba(250,250,247,0.1); margin: 2px 0 6px;
+  }
+  .breakdown-bar-fill {
+    height: 100%; background: #F5CC6B;
+    transition: width 0.3s ease;
+  }
+
+  /* Footer note */
+  .footer {
+    margin-top: 32px; padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    font-size: 11.5px; color: var(--ink-3); line-height: 1.6;
+    max-width: 800px;
+  }
+  .footer em { color: var(--ink-2); font-style: italic; }
+
+  /* Flash */
+  @keyframes pulse { 0% { color: var(--accent-2); } 100% { color: inherit; } }
+  .flash { animation: pulse 0.4s ease-out; }
+
+  /* Reverse estimate input bar */
+  .reverse-estimate {
+    background: var(--bg-2);
+    border: 1px solid var(--rule);
+    padding: 18px 22px;
+    margin-top: 24px;
+    margin-bottom: 14px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 14px 20px;
+  }
+  .reverse-l {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .reverse-label {
+    font-family: var(--sans); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink-2);
+  }
+  .reverse-input-wrap {
+    display: flex; align-items: baseline; gap: 2px;
+  }
+  .reverse-dollar {
+    font-family: var(--mono); font-size: 22px; font-weight: 500;
+    color: var(--ink-2);
+  }
+  #target-cost {
+    font-family: var(--mono); font-size: 26px; font-weight: 500;
+    background: transparent;
+    border: none; outline: none;
+    color: var(--ink);
+    width: 130px;
+    padding: 2px 4px;
+    border-bottom: 2px solid var(--rule-strong);
+    font-feature-settings: 'tnum';
+  }
+  #target-cost:focus {
+    border-bottom-color: var(--accent);
+  }
+  #auto-config-btn {
+    background: var(--ink);
+    color: var(--bg);
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 12px 22px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  #auto-config-btn:hover {
+    background: var(--accent);
+  }
+  #auto-config-btn:active {
+    transform: translateY(1px);
+  }
+  .reverse-note {
+    grid-column: 1 / -1;
+    font-family: var(--sans); font-size: 12.5px;
+    color: var(--ink-2);
+    min-height: 0;
+    line-height: 1.4;
+  }
+  .reverse-note.success { color: var(--green); }
+  .reverse-note.warn { color: var(--accent); }
+
+  /* Narrative summary */
+  .narrative {
+    margin-top: 16px;
+    padding: 20px 24px;
+    background: var(--bg-2);
+    border-left: 3px solid var(--ink);
+  }
+  .narrative-h {
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink-2); margin-bottom: 10px;
+  }
+  .narrative-body {
+    font-family: var(--sans); font-size: 14px; line-height: 1.65;
+    color: var(--ink);
+  }
+  .narrative-body strong {
+    font-weight: 600;
+    background: linear-gradient(transparent 60%, rgba(201, 162, 39, 0.25) 60%);
+    padding: 0 1px;
+  }
+
+  /* Pipeline sections get a left rule accent to distinguish them */
+  #pipeline-sections .section {
+    border-left: 3px solid var(--accent);
+  }
+  #pipeline-sections .section-h {
+    background: #FBF3F0;
+  }
+
+  /* Behaviors sections (the main cost driver) get a gold accent */
+  #behaviors-sections .section {
+    border-left: 3px solid #C9A227;
+  }
+  #behaviors-sections .section-h {
+    background: #FBF6E3;
+  }
+
+  /* Collapsible advanced */
+  details.advanced {
+    margin-top: 32px;
+    border-top: 1px solid var(--rule);
+    padding-top: 18px;
+  }
+  details.advanced > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 6px 4px;
+    user-select: none;
+  }
+  details.advanced > summary::-webkit-details-marker { display: none; }
+  details.advanced > summary:hover { background: var(--bg-2); }
+  .advanced-h {
+    font-family: var(--sans); font-size: 14px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink);
+  }
+  .advanced-sub {
+    font-family: var(--sans); font-size: 12.5px;
+    color: var(--ink-3); flex: 1;
+  }
+  .advanced-chevron {
+    font-family: var(--mono); font-size: 18px; color: var(--ink-3);
+    transition: transform 0.2s ease;
+    transform: rotate(0deg);
+  }
+  details.advanced[open] .advanced-chevron {
+    transform: rotate(90deg);
+  }
+  details.advanced[open] > summary {
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 12px;
+  }
+
+  @media (max-width: 900px) {
+    .frame { padding: 16px 18px 40px; }
+    .scope { grid-template-columns: 1fr; gap: 20px; padding: 18px 20px; }
+    .total-banner { grid-template-columns: 1fr; gap: 16px; padding: 18px 22px; }
+    .item { grid-template-columns: 1fr; gap: 10px; padding: 12px 18px; }
+    .item-cost { text-align: left; }
+    .grand { grid-template-columns: 1fr; gap: 24px; padding: 24px; }
+    .grand-r { border-left: none; padding-left: 0; padding-top: 20px; border-top: 1px solid rgba(250,250,247,0.15); min-width: 0; }
+    .ctlbar { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="frame">
+
+  <div class="head">
+    <div class="head-l">Workforce Simulation · Budget</div>
+    <div class="head-r">Platform v11.5</div>
+  </div>
+
+  <!-- Scope inputs: just employees + days (the pipeline replaces the rollouts slider) -->
+  <div class="scope">
+    <div class="scope-item">
+      <label>Number of employee agents</label>
+      <div class="scope-val"><span id="sv-N">250</span><span class="unit">employee agents</span></div>
+      <input type="range" class="scope-slider" id="ip-N" min="50" max="1000" step="25" value="250">
+    </div>
+    <div class="scope-item">
+      <label>How long the simulation runs</label>
+      <div class="scope-val"><span id="sv-days">60</span><span class="unit">days each</span></div>
+      <input type="range" class="scope-slider" id="ip-days" min="14" max="365" step="1" value="60">
+    </div>
+  </div>
+
+  <!-- Quick presets -->
+  <div class="ctlbar preset-ctlbar">
+    <span class="ctlbar-label">Choose a preset</span>
+    <div class="preset-row">
+      <button class="preset-btn" data-preset="pre_deploy">
+        <div class="preset-name">Pre-deployment screen</div>
+        <div class="preset-meta">1 week · 100 agents · screening</div>
+        <div class="preset-cost" id="cost-pre_deploy"></div>
+      </button>
+      <button class="preset-btn" data-preset="quick_demo">
+        <div class="preset-name">Quick demo</div>
+        <div class="preset-meta">2 weeks · 1 tool · minimal</div>
+        <div class="preset-cost" id="cost-quick_demo"></div>
+      </button>
+      <button class="preset-btn" data-preset="short_pilot">
+        <div class="preset-name">Short pilot</div>
+        <div class="preset-meta">1 month · 1 tool · light measurement</div>
+        <div class="preset-cost" id="cost-short_pilot"></div>
+      </button>
+      <button class="preset-btn active" data-preset="standard_pilot">
+        <div class="preset-name">Standard pilot</div>
+        <div class="preset-meta">2 months · 1 tool · core measurement</div>
+        <div class="preset-cost" id="cost-standard_pilot"></div>
+      </button>
+      <button class="preset-btn" data-preset="tool_comparison">
+        <div class="preset-name">Tool comparison</div>
+        <div class="preset-meta">2 months · 2 tools · head-to-head</div>
+        <div class="preset-cost" id="cost-tool_comparison"></div>
+      </button>
+      <button class="preset-btn" data-preset="adoption_study">
+        <div class="preset-name">Adoption study</div>
+        <div class="preset-meta">2 months · 2 tools · adoption curves</div>
+        <div class="preset-cost" id="cost-adoption_study"></div>
+      </button>
+      <button class="preset-btn" data-preset="influence_dynamics">
+        <div class="preset-name">Influence dynamics</div>
+        <div class="preset-meta">2 months · 1 tool · influence networks</div>
+        <div class="preset-cost" id="cost-influence_dynamics"></div>
+      </button>
+      <button class="preset-btn" data-preset="friction_analysis">
+        <div class="preset-name">Friction analysis</div>
+        <div class="preset-meta">2 months · 1 tool · tool friction</div>
+        <div class="preset-cost" id="cost-friction_analysis"></div>
+      </button>
+      <button class="preset-btn" data-preset="extended_pilot">
+        <div class="preset-name">Extended pilot</div>
+        <div class="preset-meta">3 months · 2 tools · team dynamics</div>
+        <div class="preset-cost" id="cost-extended_pilot"></div>
+      </button>
+      <button class="preset-btn" data-preset="power_user">
+        <div class="preset-name">Power user study</div>
+        <div class="preset-meta">1 month · heavy AI use · engineers</div>
+        <div class="preset-cost" id="cost-power_user"></div>
+      </button>
+      <button class="preset-btn" data-preset="framing_experiment">
+        <div class="preset-name">Framing experiment</div>
+        <div class="preset-meta">2 months · 1 tool · 5 framings tested</div>
+        <div class="preset-cost" id="cost-framing_experiment"></div>
+      </button>
+      <button class="preset-btn" data-preset="emotional_focus">
+        <div class="preset-name">Emotional dynamics</div>
+        <div class="preset-meta">2 months · 1 tool · affect tracking</div>
+        <div class="preset-cost" id="cost-emotional_focus"></div>
+      </button>
+      <button class="preset-btn" data-preset="longitudinal">
+        <div class="preset-name">Longitudinal study</div>
+        <div class="preset-meta">6 months · 1 tool · trajectory analysis</div>
+        <div class="preset-cost" id="cost-longitudinal"></div>
+      </button>
+      <button class="preset-btn" data-preset="large_scale">
+        <div class="preset-name">Large-scale screen</div>
+        <div class="preset-meta">1 month · 500 agents · population</div>
+        <div class="preset-cost" id="cost-large_scale"></div>
+      </button>
+      <button class="preset-btn" data-preset="commercial_deployment">
+        <div class="preset-name">Commercial deployment</div>
+        <div class="preset-meta">3 months · 3 tools · enterprise-scale</div>
+        <div class="preset-cost" id="cost-commercial_deployment"></div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Reverse estimator: target cost per agent -->
+  <div class="ctlbar reverse-bar">
+    <span class="ctlbar-label">Or set a budget</span>
+    <div class="reverse-row">
+      <span class="reverse-prefix">$</span>
+      <input type="number" id="ip-target" min="0.50" max="100" step="0.25" value="" placeholder="cost per agent" />
+      <button id="btn-reverse">Auto-configure</button>
+      <span class="reverse-feedback" id="reverse-feedback"></span>
+    </div>
+  </div>
+
+  <!-- THE PIPELINE - what employees experience -->
+  <div id="pipeline-sections"></div>
+
+  <!-- BEHAVIORS - the main cost drivers, surfaced prominently -->
+  <div id="behaviors-sections"></div>
+
+  <!-- Advanced settings (collapsible, mindful defaults) -->
+  <details class="advanced">
+    <summary>
+      <span class="advanced-h">Advanced settings</span>
+      <span class="advanced-sub">AI work tuning, memory, surveys, interviews, optional measurement extras</span>
+      <span class="advanced-chevron">›</span>
+    </summary>
+    <div id="advanced-sections"></div>
+  </details>
+
+  <!-- Grand total -->
+  <div class="grand">
+    <div class="grand-l">
+      <div class="grand-l-label">Total study cost</div>
+      <div class="grand-l-num">$<span id="grand-num">1,062</span></div>
+      <div class="grand-l-sub">
+        <span id="grand-per-twin">$4.25</span> per employee agent · ~<span id="grand-wallclock">1 hour</span> wall-clock
+      </div>
+    </div>
+    <div class="grand-r">
+      <div class="grand-r-h">Where the money goes</div>
+      <div id="breakdown"></div>
+    </div>
+  </div>
+
+  <!-- Narrative summary -->
+  <div class="narrative">
+    <div class="narrative-h">What this configuration runs</div>
+    <div class="narrative-body" id="narrative"></div>
+  </div>
+
+  <div class="footer">
+    Estimates based on current vendor pricing and forecasted usage. Expect roughly ±15% movement on per-employee-agent totals once measured usage replaces these forecasts.
+  </div>
+
+</div>
+
+<script>
+// =========================================================================
+// Pricing and cost model. Identical math to all previous versions.
+// =========================================================================
+const PRICE = {
+  "gpt-4.1":      { in: 2.00, out: 8.00 },
+  "gpt-4.1-mini": { in: 0.40, out: 1.60 },
+  "gpt-4.1-nano": { in: 0.10, out: 0.40 },
+};
+const BUILTIN = { ci: 0.03, fs_1k: 2.50, ws_1k: 10.00, img: 0.04 };
+const callCost = (m, ti, to) => (ti * PRICE[m].in + to * PRICE[m].out) / 1e6;
+
+// =========================================================================
+// State
+// =========================================================================
+const state = {
+  N: 250,
+  days: 60,
+  // Pipeline: what employees go through
+  tools: 1,            // distinct AI tools tested
+  rollouts: 1,         // rollout structures (Big Bang / Phased / Opt-In)
+  upgrades: 3,         // feature upgrades over time
+  framings: 2,         // ways to pitch the change (psychological)
+  // AI models, independently selectable per task
+  portrait_model: "gpt-4.1-mini",
+  narrative_model: "gpt-4.1-mini",
+  scoring_model: "gpt-4.1-mini",
+  active_days: 45,             // active tool-use days
+  memories_per_day: 8,
+  reflection_every: 3,          // days
+  interactions_per_day: 12,
+  tasks_per_day: 1.0,
+  steps_per_task: 4,
+  // Agent "brain" model is fixed to mini or nano only. Premium tier is
+  // intentionally locked out for pilot integrity and cost predictability.
+  brain_model: "gpt-4.1-mini",
+  prompt_caching_on: true,
+  output_eval_on: true,
+  output_eval_rate: 0.25,
+  builtin_per_task: 0.3,
+  images_per_twin: 0,
+  // Toggleable items (only items that genuinely have an opt-out)
+  quality_control_on: true,
+  survey_analytics_on: true,
+  optimize_indexing_on: false,
+  // Optional enhancements (off by default)
+  indicators_on: false,
+  tool_scenarios_on: false,
+  team_dynamics_on: false,
+  influence_on: false,
+  adoption_on: false,
+  friction_on: false,
+  skill_diffusion_on: false,
+  emotional_dynamics_on: false,
+  surveys: 6,
+  questions_per_survey: 8,
+  interviews: 0,
+  turns_per_interview: 12,
+};
+
+const PRESETS = {
+  pre_deploy: {
+    N: 100, days: 7,
+    tools: 1, rollouts: 1, upgrades: 1, framings: 1,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: false, output_eval_rate: 0.25,
+    active_days: 5, memories_per_day: 5, reflection_every: 3,
+    interactions_per_day: 6, tasks_per_day: 0.3, steps_per_task: 2,
+    builtin_per_task: 0.1, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: false,
+    indicators_on: false, tool_scenarios_on: false,
+    team_dynamics_on: false, influence_on: false, adoption_on: false,
+    friction_on: false, skill_diffusion_on: false, emotional_dynamics_on: false,
+    surveys: 1, questions_per_survey: 5, interviews: 0, turns_per_interview: 10,
+  },
+  quick_demo: {
+    N: 250, days: 14,
+    tools: 1, rollouts: 1, upgrades: 1, framings: 1,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: false, output_eval_rate: 0.25,
+    active_days: 10, memories_per_day: 6, reflection_every: 3,
+    interactions_per_day: 8, tasks_per_day: 0.5, steps_per_task: 3,
+    builtin_per_task: 0.2, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: false,
+    indicators_on: false, tool_scenarios_on: false,
+    team_dynamics_on: false, influence_on: false, adoption_on: false,
+    friction_on: false, skill_diffusion_on: false, emotional_dynamics_on: false,
+    surveys: 2, questions_per_survey: 6, interviews: 0, turns_per_interview: 12,
+  },
+  short_pilot: {
+    N: 250, days: 30,
+    tools: 1, rollouts: 1, upgrades: 2, framings: 2,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.25,
+    active_days: 22, memories_per_day: 8, reflection_every: 3,
+    interactions_per_day: 10, tasks_per_day: 1.0, steps_per_task: 4,
+    builtin_per_task: 0.3, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: false,
+    indicators_on: false, tool_scenarios_on: false,
+    team_dynamics_on: false, influence_on: false, adoption_on: false,
+    friction_on: false, skill_diffusion_on: false, emotional_dynamics_on: false,
+    surveys: 3, questions_per_survey: 8, interviews: 0, turns_per_interview: 12,
+  },
+  standard_pilot: { ...state },
+  tool_comparison: {
+    N: 250, days: 60,
+    tools: 2, rollouts: 2, upgrades: 3, framings: 2,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.25,
+    active_days: 45, memories_per_day: 8, reflection_every: 2,
+    interactions_per_day: 15, tasks_per_day: 1.5, steps_per_task: 5,
+    builtin_per_task: 0.4, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: true,
+    indicators_on: false, tool_scenarios_on: true,
+    team_dynamics_on: false, influence_on: false, adoption_on: false,
+    friction_on: false, skill_diffusion_on: false, emotional_dynamics_on: false,
+    surveys: 5, questions_per_survey: 10, interviews: 2, turns_per_interview: 10,
+  },
+  adoption_study: {
+    N: 250, days: 60,
+    tools: 2, rollouts: 2, upgrades: 4, framings: 2,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.25,
+    active_days: 50, memories_per_day: 8, reflection_every: 2,
+    interactions_per_day: 12, tasks_per_day: 1.5, steps_per_task: 5,
+    builtin_per_task: 0.3, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: true,
+    indicators_on: false, tool_scenarios_on: true,
+    team_dynamics_on: false, influence_on: false, adoption_on: true,
+    friction_on: false, skill_diffusion_on: false, emotional_dynamics_on: false,
+    surveys: 4, questions_per_survey: 10, interviews: 2, turns_per_interview: 10,
+  },
+  influence_dynamics: {
+    N: 250, days: 60,
+    tools: 1, rollouts: 1, upgrades: 2, framings: 1,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.20,
+    active_days: 45, memories_per_day: 10, reflection_every: 2,
+    interactions_per_day: 25, tasks_per_day: 1.0, steps_per_task: 4,
+    builtin_per_task: 0.2, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: true,
+    indicators_on: false, tool_scenarios_on: false,
+    team_dynamics_on: true, influence_on: true, adoption_on: false,
+    friction_on: false, skill_diffusion_on: true, emotional_dynamics_on: false,
+    surveys: 4, questions_per_survey: 8, interviews: 2, turns_per_interview: 12,
+  },
+  friction_analysis: {
+    N: 250, days: 60,
+    tools: 1, rollouts: 1, upgrades: 3, framings: 2,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.35,
+    active_days: 50, memories_per_day: 8, reflection_every: 2,
+    interactions_per_day: 12, tasks_per_day: 2.0, steps_per_task: 6,
+    builtin_per_task: 0.5, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: true,
+    indicators_on: true, tool_scenarios_on: true,
+    team_dynamics_on: false, influence_on: false, adoption_on: false,
+    friction_on: true, skill_diffusion_on: false, emotional_dynamics_on: true,
+    surveys: 4, questions_per_survey: 10, interviews: 3, turns_per_interview: 12,
+  },
+  extended_pilot: {
+    N: 250, days: 90,
+    tools: 2, rollouts: 2, upgrades: 3, framings: 2,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.25,
+    active_days: 70, memories_per_day: 8, reflection_every: 1,
+    interactions_per_day: 20, tasks_per_day: 2.0, steps_per_task: 6,
+    builtin_per_task: 0.5, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: true,
+    indicators_on: true, tool_scenarios_on: true,
+    team_dynamics_on: true, influence_on: false, adoption_on: true,
+    friction_on: false, skill_diffusion_on: false, emotional_dynamics_on: false,
+    surveys: 6, questions_per_survey: 10, interviews: 3, turns_per_interview: 12,
+  },
+  power_user: {
+    N: 250, days: 30,
+    tools: 1, rollouts: 1, upgrades: 2, framings: 2,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.30,
+    active_days: 25, memories_per_day: 10, reflection_every: 2,
+    interactions_per_day: 12, tasks_per_day: 4.0, steps_per_task: 8,
+    builtin_per_task: 0.7, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: true,
+    indicators_on: true, tool_scenarios_on: true,
+    team_dynamics_on: false, influence_on: false, adoption_on: true,
+    friction_on: true, skill_diffusion_on: false, emotional_dynamics_on: false,
+    surveys: 3, questions_per_survey: 10, interviews: 2, turns_per_interview: 12,
+  },
+  framing_experiment: {
+    N: 250, days: 60,
+    tools: 1, rollouts: 1, upgrades: 2, framings: 5,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.25,
+    active_days: 45, memories_per_day: 8, reflection_every: 2,
+    interactions_per_day: 12, tasks_per_day: 1.0, steps_per_task: 4,
+    builtin_per_task: 0.3, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: true,
+    indicators_on: false, tool_scenarios_on: false,
+    team_dynamics_on: false, influence_on: false, adoption_on: true,
+    friction_on: false, skill_diffusion_on: false, emotional_dynamics_on: false,
+    surveys: 5, questions_per_survey: 10, interviews: 2, turns_per_interview: 10,
+  },
+  emotional_focus: {
+    N: 250, days: 60,
+    tools: 1, rollouts: 1, upgrades: 3, framings: 2,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.25,
+    active_days: 45, memories_per_day: 10, reflection_every: 1,
+    interactions_per_day: 15, tasks_per_day: 1.5, steps_per_task: 5,
+    builtin_per_task: 0.4, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: true,
+    indicators_on: true, tool_scenarios_on: false,
+    team_dynamics_on: false, influence_on: false, adoption_on: false,
+    friction_on: false, skill_diffusion_on: false, emotional_dynamics_on: true,
+    surveys: 5, questions_per_survey: 10, interviews: 3, turns_per_interview: 12,
+  },
+  longitudinal: {
+    N: 250, days: 180,
+    tools: 1, rollouts: 1, upgrades: 6, framings: 1,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.15,
+    active_days: 140, memories_per_day: 8, reflection_every: 1,
+    interactions_per_day: 10, tasks_per_day: 0.8, steps_per_task: 4,
+    builtin_per_task: 0.3, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: true,
+    indicators_on: true, tool_scenarios_on: false,
+    team_dynamics_on: false, influence_on: false, adoption_on: true,
+    friction_on: false, skill_diffusion_on: false, emotional_dynamics_on: true,
+    surveys: 8, questions_per_survey: 10, interviews: 4, turns_per_interview: 12,
+  },
+  large_scale: {
+    N: 500, days: 30,
+    tools: 1, rollouts: 1, upgrades: 2, framings: 2,
+    portrait_model: "gpt-4.1-mini", narrative_model: "gpt-4.1-mini", scoring_model: "gpt-4.1-mini",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.15,
+    active_days: 22, memories_per_day: 6, reflection_every: 3,
+    interactions_per_day: 8, tasks_per_day: 1.0, steps_per_task: 4,
+    builtin_per_task: 0.3, images_per_twin: 0,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: false,
+    indicators_on: false, tool_scenarios_on: false,
+    team_dynamics_on: false, influence_on: false, adoption_on: true,
+    friction_on: false, skill_diffusion_on: false, emotional_dynamics_on: false,
+    surveys: 3, questions_per_survey: 8, interviews: 0, turns_per_interview: 12,
+  },
+  commercial_deployment: {
+    N: 250, days: 90,
+    tools: 3, rollouts: 3, upgrades: 5, framings: 3,
+    portrait_model: "gpt-4.1", narrative_model: "gpt-4.1", scoring_model: "gpt-4.1-nano",
+    brain_model: "gpt-4.1-mini", prompt_caching_on: true,
+    output_eval_on: true, output_eval_rate: 0.50,
+    active_days: 70, memories_per_day: 8, reflection_every: 1,
+    interactions_per_day: 35, tasks_per_day: 5.0, steps_per_task: 8,
+    builtin_per_task: 0.8, images_per_twin: 8,
+    quality_control_on: true, survey_analytics_on: true, optimize_indexing_on: true,
+    indicators_on: true, tool_scenarios_on: true,
+    team_dynamics_on: true, influence_on: true, adoption_on: true,
+    friction_on: true, skill_diffusion_on: true, emotional_dynamics_on: true,
+    surveys: 6, questions_per_survey: 10, interviews: 6, turns_per_interview: 15,
+  }
+};
+
+// =========================================================================
+// Per-line-item cost computation. Each returns { perTwin, total, formula }.
+// All cost values are in dollars per twin (total = perTwin × N).
+// =========================================================================
+function lineItems() {
+  const s = state;
+
+  // Per-call costs (internal, not exposed to user)
+  const c_narrative   = callCost(s.narrative_model, 3100, 1800);
+  const c_state       = callCost(s.scoring_model,   2000, 150);
+  const c_retry       = callCost(s.scoring_model,   1500, 50);
+  const c_memory_imp  = callCost(s.scoring_model,   300, 50);
+  const c_portrait    = callCost(s.portrait_model,  1500, 400);
+  const c_reflection  = callCost("gpt-4.1-mini", 3000, 600);
+  const c_dialogue    = callCost("gpt-4.1-mini", 1500, 200);
+  const c_intervention= callCost("gpt-4.1-mini", 2000, 400);
+  const c_judge       = callCost("gpt-4.1-mini", 3000, 600);
+  const c_survey      = callCost("gpt-4.1-mini", 1500, 200);
+  const c_theme       = callCost("gpt-4.1-mini", 3000, 800);
+  const c_exec        = callCost("gpt-4.1-mini", 2000, 300);
+  const c_interview   = callCost("gpt-4.1-mini", 2000, 400);
+  const c_journey     = callCost("gpt-4.1-mini", 2500, 500);
+  const c_tool_event  = callCost("gpt-4.1-mini", 1500, 300);
+  const c_indicator   = callCost("gpt-4.1-mini", 3000, 500);
+  // Agent brain: fixed to gpt-4.1-mini or gpt-4.1-nano only. Prompt caching
+  // (when on) discounts the input-token portion of repeated context to ~25%,
+  // which is roughly 70% of each step's tokens. Net savings on the step ~45%.
+  const callCostCached = (m, ti, to) => {
+    // ~80% of input tokens are cached after step 1; cached tokens billed at 25%
+    const cached_in = ti * 0.80;
+    const fresh_in = ti * 0.20;
+    return ((cached_in * 0.25 + fresh_in) * PRICE[m].in + to * PRICE[m].out) / 1e6;
+  };
+  const c_loop_full = callCost(s.brain_model, 2500, 400);
+  const c_loop_cached = callCostCached(s.brain_model, 2500, 400);
+  const c_loop = s.prompt_caching_on ? c_loop_cached : c_loop_full;
+
+  // ===== PIPELINE: what each person experiences =====
+  // Ordered behavioral (structural) to psychological (framing)
+  const pipeline = [];
+  const upgrade_events = s.tools * s.upgrades;
+  const judge_per_twin = (s.tools + s.rollouts + upgrade_events + s.framings) * c_judge / Math.max(1, s.N);
+
+  pipeline.push({
+    id: "tools",
+    name: "Number of tools to test",
+    explain: "Distinct AI tools evaluated in the simulation. Each tool is its own intervention against the workforce (e.g. Copilot vs Cursor vs Claude Code).",
+    perTwin: s.tools * c_intervention,
+    control: { type: "slider", key: "tools", min: 0, max: 8, step: 1,
+               fmt: v => v + " tool" + (v === 1 ? "" : "s") },
+  });
+
+  pipeline.push({
+    id: "rollouts",
+    name: "Rollout structure",
+    explain: "Deployment strategy for each tool. Test structures like Big Bang, Phased, or Opt-In to see which produces the best response.",
+    perTwin: s.rollouts * c_intervention,
+    control: { type: "slider", key: "rollouts", min: 0, max: 6, step: 1,
+               fmt: v => v + " structure" + (v === 1 ? "" : "s") },
+  });
+
+  pipeline.push({
+    id: "upgrades",
+    name: "Feature upgrades per tool",
+    explain: `New capabilities added after launch within each tool. Total upgrade events per agent = tools × upgrades. With ${s.tools} tools × ${s.upgrades} upgrades each, this produces ${upgrade_events} events per agent, supporting per-tool trajectory and tool × upgrade interaction analysis.`,
+    perTwin: upgrade_events * c_intervention + judge_per_twin,
+    control: { type: "slider", key: "upgrades", min: 0, max: 24, step: 1,
+               fmt: v => v + " upgrade" + (v === 1 ? "" : "s") + "/tool" },
+  });
+
+  pipeline.push({
+    id: "framings",
+    name: "Ways to pitch the change",
+    explain: "How leadership communicates the change before launch. Test framings (productivity, learning, cost-cutting) and see how each lands.",
+    perTwin: s.framings * c_intervention,
+    control: { type: "slider", key: "framings", min: 0, max: 6, step: 1,
+               fmt: v => v + " framing" + (v === 1 ? "" : "s") },
+  });
+
+  // ===== BEHAVIORS: the main cost drivers =====
+  const behaviors = [];
+
+  // Dialogue cost: when optimize_indexing_on, ~40% of cost is skipped (only
+  // high-signal conversations get full memory indexing).
+  const dialogue_factor = s.optimize_indexing_on ? 0.6 : 1.0;
+  behaviors.push({
+    id: "dialogue",
+    name: "Conversations with teammates",
+    explain: "Standups, 1-on-1s, code reviews, hallway chats. Each conversation persists as shared memory for both people. Optimize indexing toggle in Memory and quality cuts this cost.",
+    perTwin: s.interactions_per_day * 2 * s.days * c_dialogue * dialogue_factor,
+    control: { type: "slider", key: "interactions_per_day", min: 1, max: 60, step: 1,
+               fmt: v => v + " conversation" + (v === 1 ? "" : "s") + "/day" },
+  });
+
+  const total_steps = s.tasks_per_day * s.active_days * s.steps_per_task;
+  behaviors.push({
+    id: "ai_intensity",
+    name: "AI use for work",
+    explain: "Number of AI-assisted tasks each employee agent attempts per active day. The single biggest cost lever.",
+    perTwin: total_steps * c_loop,
+    control: { type: "slider", key: "tasks_per_day", min: 0, max: 10, step: 0.5,
+               fmt: v => v.toFixed(1) + " task" + (v === 1.0 ? "" : "s") + "/day" },
+  });
+
+  behaviors.push({
+    id: "ai_depth",
+    name: "Multi-step prompting per task",
+    explain: "How many reasoning steps the agent takes within each AI task (plan, call tools, observe, refine). Higher depth captures realistic deliberate AI use; lower depth models autocomplete-style use.",
+    perTwin: 0,
+    control: { type: "slider", key: "steps_per_task", min: 1, max: 12, step: 1,
+               fmt: v => v + " step" + (v === 1 ? "" : "s") + "/task" },
+    cost_hidden: true,
+    cost_ref: "in AI use for work",
+  });
+
+  const total_tasks = s.tasks_per_day * s.active_days;
+  const builtin_calls = total_tasks * s.builtin_per_task;
+  const tool_fee = builtin_calls * 0.40 * (BUILTIN.ws_1k / 1000)
+                 + builtin_calls * 0.30 * (BUILTIN.fs_1k / 1000)
+                 + builtin_calls * 0.30 * BUILTIN.ci;
+
+  behaviors.push({
+    id: "images",
+    name: "Image generation",
+    explain: "For visual roles. When on, each employee agent generates a handful of images during work.",
+    perTwin: s.images_per_twin * BUILTIN.img,
+    perTwinIfOn: 5 * BUILTIN.img,
+    control: { type: "toggle", key: "_images_toggle" },
+    disabled: s.images_per_twin === 0,
+  });
+
+  // ===== ADVANCED: AI work tuning =====
+  const ai_tuning = [];
+
+  ai_tuning.push({
+    id: "brain",
+    name: "Agent brain model",
+    explain: "Which model drives the agent's reasoning loop. Locked to gpt-4.1-mini (richer reasoning) or gpt-4.1-nano (≈4× cheaper, suitable for cost-constrained pilots). Premium models are intentionally not available here, to keep agent behavior consistent across the simulation.",
+    perTwin: 0,
+    control: {
+      type: "model_picker", key: "brain_model",
+      options: ["gpt-4.1-mini", "gpt-4.1-nano"],
+    },
+    cost_hidden: true,
+    cost_ref: "in AI use for work",
+  });
+
+  ai_tuning.push({
+    id: "prompt_caching",
+    name: "Prompt caching",
+    explain: "When on, repeated context within each reasoning loop (persona, task description, prior steps) is cached at ~25% of nominal input cost. Cuts AI use for work cost by roughly 45%. On by default; safe for all production deployments.",
+    perTwin: 0,
+    control: { type: "toggle", key: "prompt_caching_on" },
+    cost_hidden: true,
+    cost_ref: s.prompt_caching_on ? "in AI use for work" : "caching off",
+  });
+
+  ai_tuning.push({
+    id: "ai_tools",
+    name: "External AI service calls",
+    explain: "When the AI uses web search, file lookup, or code execution to complete a task. Each external call has its own fee.",
+    perTwin: tool_fee,
+    control: { type: "slider", key: "builtin_per_task", min: 0, max: 2, step: 0.1,
+               fmt: v => v.toFixed(1) + " calls/task" },
+  });
+
+  // Third-party LLM evaluation of agent task output. Independent evaluator
+  // scores each sampled task output along correctness, tool-use quality, and
+  // alignment dimensions. Sampling rate controls how many tasks get evaluated.
+  const c_eval = callCost("gpt-4.1-mini", 3000, 600);
+  const eval_calls_per_twin = total_tasks * s.output_eval_rate;
+  const eval_cost_per_twin = s.output_eval_on ? eval_calls_per_twin * c_eval : 0;
+  ai_tuning.push({
+    id: "output_eval",
+    name: "Output quality evaluation",
+    explain: "Third-party LLM rates each sampled task output on correctness, tool-use efficiency, and alignment. Required for validating agent behavior against real telemetry and for differentiating between AI tools in comparison studies.",
+    perTwin: eval_cost_per_twin,
+    perTwinIfOn: total_tasks * s.output_eval_rate * c_eval,
+    control: { type: "toggle", key: "output_eval_on" },
+    disabled: !s.output_eval_on,
+  });
+
+  ai_tuning.push({
+    id: "output_eval_rate",
+    name: "Evaluation sampling rate",
+    explain: "Fraction of agent task outputs sent to the evaluator. 100% scores everything (highest fidelity, highest cost). 25% is a typical research sample. Below 10% loses statistical power for tool comparison.",
+    perTwin: 0,
+    control: { type: "slider", key: "output_eval_rate", min: 0.05, max: 1.0, step: 0.05,
+               fmt: v => (v * 100).toFixed(0) + "% sampled" },
+    cost_hidden: true,
+    cost_ref: s.output_eval_on ? "in output quality evaluation" : "evaluation off",
+  });
+
+  // ===== CORE: foundational per-employee generation, non-optional =====
+  const core = [];
+
+  core.push({
+    id: "portrait",
+    name: "Employee agent personality profiles",
+    explain: "A unique Big Five personality and short biography for every employee agent.",
+    perTwin: c_portrait,
+    control: "none",
+  });
+
+  core.push({
+    id: "workday",
+    name: "Daily workday narrative",
+    explain: "Each employee agent writes a first-person workday narrative, hour by hour. The biggest writing job in the simulation.",
+    perTwin: s.days * c_narrative,
+    control: "none",
+  });
+
+  core.push({
+    id: "state",
+    name: "Daily psychological scoring",
+    explain: "Each day, rate how engaged, safe, creative, and trusting each employee agent felt. Four independent ratings.",
+    perTwin: 4 * s.days * c_state,
+    control: "none",
+  });
+
+  core.push({
+    id: "journey",
+    name: "End-of-pilot personal narrative",
+    explain: "At the end of the pilot, write a paragraph-length narrative describing each employee agent's overall experience.",
+    perTwin: c_journey,
+    control: "none",
+  });
+
+  // ===== ADVANCED: memory & reflection =====
+  const memory = [];
+
+  memory.push({
+    id: "retry",
+    name: "Re-score when first attempt fails",
+    explain: "Sometimes the AI's first scoring attempt is malformed. Re-running on those days catches the failures.",
+    perTwin: s.quality_control_on ? 0.10 * s.days * c_retry : 0,
+    perTwinIfOn: 0.10 * s.days * c_retry,
+    control: { type: "toggle", key: "quality_control_on" },
+    disabled: !s.quality_control_on,
+  });
+
+  memory.push({
+    id: "memory",
+    name: "Memory ranking",
+    explain: "Each employee agent accumulates memories of the day. Rank by importance so future prompts retrieve the right ones.",
+    perTwin: s.memories_per_day * s.days * c_memory_imp,
+    control: { type: "slider", key: "memories_per_day", min: 4, max: 16, step: 1, fmt: v => v + " memories/day" },
+  });
+
+  const reflections = s.days / s.reflection_every;
+  memory.push({
+    id: "reflection",
+    name: "Reflection cycles",
+    explain: "Periodically condense recent memories into deeper insights. Slower cadence saves cost but loses depth.",
+    perTwin: reflections * c_reflection,
+    control: { type: "slider", key: "reflection_every", min: 1, max: 7, step: 1,
+               fmt: v => v === 1 ? "Every day" : "Every " + v + " days" },
+  });
+
+  // Optimize conversation indexing: when on, only ~60% of conversations
+  // get full memory indexing. Savings already baked into Conversations item.
+  const dialogue_full = s.interactions_per_day * 2 * s.days * c_dialogue;
+  const dialogue_savings = dialogue_full * 0.40;
+  memory.push({
+    id: "optimize_indexing",
+    name: "Optimize conversation indexing",
+    explain: "When on, only conversations with high signal (mention the tool, high affect, key teammates) get full memory indexing. Cuts conversation cost by roughly 40%.",
+    perTwin: 0,
+    control: { type: "toggle", key: "optimize_indexing_on" },
+    cost_hidden: true,
+    cost_ref: s.optimize_indexing_on
+      ? `saving ${fmt$(dialogue_savings)}/agent`
+      : `could save ${fmt$(dialogue_savings)}/agent`,
+  });
+
+  // ===== ADVANCED: extras =====
+  const extras = [];
+
+  const c_team_rollup  = callCost("gpt-4.1-mini", 3000, 600);
+  const c_influence    = callCost("gpt-4.1-mini", 1200, 200);
+  const c_adoption_cls = callCost("gpt-4.1-mini", 2500, 500);
+  const c_friction     = callCost("gpt-4.1-mini", 1500, 300);
+  const c_skill_diff   = callCost("gpt-4.1-mini", 2000, 400);
+  const c_emotion      = callCost("gpt-4.1-mini", 1800, 350);
+
+  extras.push({
+    id: "indicators",
+    name: "Track small daily behaviors",
+    explain: "Pull out fine-grained signals from each day's narrative: focus time, breaks, social interaction, and 52 others.",
+    perTwin: s.indicators_on ? s.days * c_indicator : 0,
+    perTwinIfOn: s.days * c_indicator,
+    control: { type: "toggle", key: "indicators_on" },
+    disabled: !s.indicators_on,
+  });
+
+  extras.push({
+    id: "tool_scenarios",
+    name: "Make AI moments unique to each person",
+    explain: "Instead of using a fixed set of scenarios, generate a unique tool-encounter scenario for each employee agent.",
+    perTwin: s.tool_scenarios_on ? s.active_days * c_tool_event : 0,
+    perTwinIfOn: s.active_days * c_tool_event,
+    control: { type: "toggle", key: "tool_scenarios_on" },
+    disabled: !s.tool_scenarios_on,
+  });
+
+  extras.push({
+    id: "team_dynamics",
+    name: "Track team-level dynamics",
+    explain: "Roll up individual scores into team-level constructs: climate, cohesion, collective efficacy, and shared mental models. Roughly one team per 10 agents.",
+    perTwin: s.team_dynamics_on ? (s.days * c_team_rollup) / 10 : 0,
+    perTwinIfOn: (s.days * c_team_rollup) / 10,
+    control: { type: "toggle", key: "team_dynamics_on" },
+    disabled: !s.team_dynamics_on,
+  });
+
+  extras.push({
+    id: "influence",
+    name: "Track who's influencing whom",
+    explain: "Analyze each dialogue for influence direction. Build a network of which coworkers are shaping each agent's stance on the tool over time.",
+    perTwin: s.influence_on ? s.interactions_per_day * s.days * c_influence : 0,
+    perTwinIfOn: s.interactions_per_day * s.days * c_influence,
+    control: { type: "toggle", key: "influence_on" },
+    disabled: !s.influence_on,
+  });
+
+  extras.push({
+    id: "adoption",
+    name: "Classify adoption pattern per agent",
+    explain: "At the end of the horizon, classify each agent's adoption trajectory: early, mainstream, late, or refuser, with the curve shape that supports the label.",
+    perTwin: s.adoption_on ? c_adoption_cls : 0,
+    perTwinIfOn: c_adoption_cls,
+    control: { type: "toggle", key: "adoption_on" },
+    disabled: !s.adoption_on,
+  });
+
+  extras.push({
+    id: "friction",
+    name: "Track friction moments with the tool",
+    explain: "Extract specific instances of struggle, abandonment, or repeated retries during AI tasks. Distinguishes one-time stumbles from chronic friction.",
+    perTwin: s.friction_on ? s.active_days * c_friction : 0,
+    perTwinIfOn: s.active_days * c_friction,
+    control: { type: "toggle", key: "friction_on" },
+    disabled: !s.friction_on,
+  });
+
+  extras.push({
+    id: "skill_diffusion",
+    name: "Track skill diffusion between coworkers",
+    explain: "How prompting strategies, tool tricks, and AI-specific skills spread between agents through their conversations. Picks out who's a source and who's downstream.",
+    perTwin: s.skill_diffusion_on ? s.active_days * c_skill_diff : 0,
+    perTwinIfOn: s.active_days * c_skill_diff,
+    control: { type: "toggle", key: "skill_diffusion_on" },
+    disabled: !s.skill_diffusion_on,
+  });
+
+  extras.push({
+    id: "emotional_dynamics",
+    name: "Track day-to-day emotional dynamics",
+    explain: "Beyond the four target states, pull out daily affect granularity: anxiety, frustration, hope, satisfaction, social warmth, and how each shifts in response to tool events.",
+    perTwin: s.emotional_dynamics_on ? s.days * c_emotion : 0,
+    perTwinIfOn: s.days * c_emotion,
+    control: { type: "toggle", key: "emotional_dynamics_on" },
+    disabled: !s.emotional_dynamics_on,
+  });
+
+  // ===== ADVANCED: surveys and interviews =====
+  const measurement = [];
+
+  const sq = s.surveys * s.questions_per_survey;
+  measurement.push({
+    id: "surveys",
+    name: "Survey rounds",
+    explain: `Each round asks ${s.questions_per_survey} questions to every employee agent. Responses feed pattern-finding and summaries.`,
+    perTwin: sq * c_survey,
+    control: { type: "slider", key: "surveys", min: 0, max: 24, step: 1,
+               fmt: v => v + " round" + (v === 1 ? "" : "s") },
+  });
+
+  const fb = s.surveys * 24;
+  const theme_per_twin = fb * c_theme / Math.max(1, s.N);
+  const exec_per_twin = fb * c_exec / Math.max(1, s.N);
+  measurement.push({
+    id: "analytics",
+    name: "Read and summarize survey results",
+    explain: "Auto-find patterns across all responses and write a short summary per team and per dimension.",
+    perTwin: s.survey_analytics_on ? (theme_per_twin + exec_per_twin) : 0,
+    perTwinIfOn: theme_per_twin + exec_per_twin,
+    control: { type: "toggle", key: "survey_analytics_on" },
+    disabled: !s.survey_analytics_on,
+  });
+
+  measurement.push({
+    id: "interviews",
+    name: "Open-ended interviews",
+    explain: `Longer back-and-forth conversations with each employee agent at multiple points across the pilot. ${s.turns_per_interview} turns each.`,
+    perTwin: s.interviews * s.turns_per_interview * c_interview,
+    control: { type: "slider", key: "interviews", min: 0, max: 24, step: 1,
+               fmt: v => v + " interview" + (v === 1 ? "" : "s") },
+  });
+
+  return {
+    pipeline: { "Pipeline of events each employee agent experiences": pipeline },
+    behaviors: { "Employee agent behaviors and tool use": behaviors },
+    core: { "Per-employee generation": core },
+    advanced: {
+      "AI work tuning": ai_tuning,
+      "Memory and quality": memory,
+      "Optional measurement extras": extras,
+      "Surveys and interviews": measurement,
+    },
+  };
+}
+
+function allSectionsFlat() {
+  const li = lineItems();
+  const out = {};
+  for (const group of ["pipeline", "behaviors", "core", "advanced"]) {
+    for (const [name, items] of Object.entries(li[group])) {
+      out[name] = items;
+    }
+  }
+  return out;
+}
+
+function totalPerTwin() {
+  const all = allSectionsFlat();
+  let t = 0;
+  for (const items of Object.values(all)) {
+    for (const it of items) t += it.perTwin;
+  }
+  return t;
+}
+function totalAllItems() {
+  // Flatten and group by visible cost contribution for the breakdown chart
+  const all = allSectionsFlat();
+  const out = [];
+  for (const [section, items] of Object.entries(all)) {
+    for (const it of items) {
+      if (!it.cost_hidden && it.perTwin > 0.0005) {
+        out.push({ name: it.name, perTwin: it.perTwin });
+      }
+    }
+  }
+  return out.sort((a, b) => b.perTwin - a.perTwin);
+}
+
+// =========================================================================
+// Wall-clock estimate (rough)
+// =========================================================================
+function wallclockHr() {
+  const steps = state.tasks_per_day * state.active_days * state.steps_per_task * state.N;
+  const narratives = state.days * state.N;
+  const total_calls = steps + narratives * 6;
+  return Math.max(0.3, total_calls / 100 / 3600);
+}
+
+// =========================================================================
+// Rendering
+// =========================================================================
+function fmt$(v) {
+  if (v < 0.001) return "$0.00";
+  if (v < 1) return "$" + v.toFixed(3);
+  return "$" + v.toFixed(2);
+}
+function fmtTotal(v) {
+  return "$" + Math.round(v).toLocaleString();
+}
+function fmtInt(v) { return v.toLocaleString(); }
+
+function renderSection(sectionName, items, container) {
+  const sectionTotal = items.reduce((a, b) => a + b.perTwin, 0);
+  const sectionTotalAll = sectionTotal * state.N;
+
+  const sec = document.createElement("div");
+  sec.className = "section";
+  sec.innerHTML = `
+    <div class="section-h">
+      <div class="section-h-name">${sectionName}</div>
+      <div class="section-h-cost">${fmt$(sectionTotal)}/employee agent<span class="total">${fmtTotal(sectionTotalAll)} total</span></div>
+    </div>
+  `;
+  for (const it of items) {
+    const row = document.createElement("div");
+    row.className = "item" + (it.disabled ? " disabled" : "");
+    let ctrlHtml = '<span class="item-ctrl none"></span>';
+    if (it.control && it.control !== "none") {
+      if (it.control.type === "slider") {
+        const v = state[it.control.key];
+        ctrlHtml = `
+          <div class="item-ctrl">
+            <input type="range" class="item-slider" min="${it.control.min}" max="${it.control.max}" step="${it.control.step}" value="${v}" data-key="${it.control.key}" data-fmt="${it.id}"/>
+            <span class="item-slider-val" data-disp="${it.id}">${it.control.fmt(v)}</span>
+          </div>
+        `;
+      } else if (it.control.type === "toggle") {
+        // Special handling for the images toggle which flips state.images_per_twin
+        const on = it.control.key === "_images_toggle"
+          ? (state.images_per_twin > 0)
+          : state[it.control.key];
+        ctrlHtml = `
+          <div class="item-ctrl">
+            <span class="item-toggle-label">${on ? "on" : "off"}</span>
+            <div class="item-toggle ${on ? "on" : ""}" data-key="${it.control.key}"></div>
+          </div>
+        `;
+      } else if (it.control.type === "model_picker") {
+        const cur = state[it.control.key];
+        const buttons = it.control.options.map(opt =>
+          `<button class="model-pick-btn ${opt === cur ? 'active' : ''}" data-key="${it.control.key}" data-val="${opt}">${opt}</button>`
+        ).join("");
+        ctrlHtml = `<div class="item-ctrl model-pick-group">${buttons}</div>`;
+      }
+    }
+
+    let costHtml;
+    if (it.cost_hidden) {
+      const ref = it.cost_ref || "included above";
+      costHtml = `<span class="item-cost-val" style="color:var(--ink-3);font-size:11px">${ref}</span>`;
+    } else if (it.disabled && it.perTwinIfOn !== undefined) {
+      costHtml = `
+        <div class="item-cost-val" style="color:var(--ink-3)">+ ${fmt$(it.perTwinIfOn)}<span style="font-size:11px;color:var(--ink-3);margin-left:3px">/employee agent</span></div>
+        <div class="item-cost-total"><span class="lbl">would add</span>${fmtTotal(it.perTwinIfOn * state.N)}</div>
+      `;
+    } else {
+      const displayPerTwin = fmt$(it.perTwin) + '<span style="font-size:11px;color:var(--ink-3);margin-left:3px">/employee agent</span>';
+      const displayTotal = `<span class="lbl">total</span>${fmtTotal(it.perTwin * state.N)}`;
+      costHtml = `
+        <div class="item-cost-val">${displayPerTwin}</div>
+        <div class="item-cost-total">${displayTotal}</div>
+      `;
+    }
+
+    row.innerHTML = `
+      <div class="item-desc">
+        <div class="item-name">${it.name}</div>
+        <div class="item-explain">${it.explain}</div>
+      </div>
+      ${ctrlHtml}
+      <div class="item-cost">${costHtml}</div>
+    `;
+    sec.appendChild(row);
+  }
+  container.appendChild(sec);
+}
+
+function renderSections() {
+  const all = lineItems();
+  const pipelineEl = document.getElementById("pipeline-sections");
+  const behaviorsEl = document.getElementById("behaviors-sections");
+  const advancedEl = document.getElementById("advanced-sections");
+  pipelineEl.innerHTML = "";
+  behaviorsEl.innerHTML = "";
+  advancedEl.innerHTML = "";
+
+  for (const [name, items] of Object.entries(all.pipeline)) renderSection(name, items, pipelineEl);
+  for (const [name, items] of Object.entries(all.behaviors)) renderSection(name, items, behaviorsEl);
+  for (const [name, items] of Object.entries(all.advanced)) renderSection(name, items, advancedEl);
+
+  attachItemHandlers();
+}
+
+function updateSliderFills() {
+  document.querySelectorAll('input[type="range"]').forEach(el => {
+    const min = parseFloat(el.min) || 0;
+    const max = parseFloat(el.max) || 100;
+    const val = parseFloat(el.value) || 0;
+    const pct = ((val - min) / (max - min)) * 100;
+    el.style.setProperty('--fill', pct + '%');
+  });
+}
+
+function attachItemHandlers() {
+  document.querySelectorAll('.item-slider').forEach(el => {
+    el.addEventListener("input", () => {
+      state[el.dataset.key] = parseFloat(el.value);
+      // Update this slider's fill immediately so it tracks the thumb during drag
+      const min = parseFloat(el.min) || 0;
+      const max = parseFloat(el.max) || 100;
+      const pct = ((parseFloat(el.value) - min) / (max - min)) * 100;
+      el.style.setProperty('--fill', pct + '%');
+      renderSections();
+      renderTotals();
+    });
+  });
+  document.querySelectorAll('.item-toggle').forEach(el => {
+    el.addEventListener("click", () => {
+      const k = el.dataset.key;
+      if (k === "_images_toggle") {
+        // Toggle between 0 and 5 images per twin
+        state.images_per_twin = state.images_per_twin > 0 ? 0 : 5;
+      } else {
+        state[k] = !state[k];
+      }
+      renderSections();
+      renderTotals();
+    });
+  });
+  document.querySelectorAll('.model-pick-btn').forEach(el => {
+    el.addEventListener("click", () => {
+      const k = el.dataset.key;
+      state[k] = el.dataset.val;
+      renderSections();
+      renderTotals();
+    });
+  });
+  updateSliderFills();
+}
+
+function renderTotals() {
+  const t = totalPerTwin();
+  const totalStudy = t * state.N;
+  const gn = document.getElementById("grand-num");
+  gn.textContent = Math.round(totalStudy).toLocaleString();
+  gn.classList.remove("flash"); void gn.offsetWidth; gn.classList.add("flash");
+  document.getElementById("grand-per-twin").textContent = fmt$(t);
+  const hr = wallclockHr();
+  document.getElementById("grand-wallclock").textContent =
+    hr < 1 ? "30 minutes" : hr < 10 ? hr.toFixed(1) + " hours" : Math.round(hr) + " hours";
+
+  // Breakdown
+  const items = totalAllItems();
+  const visible = items.slice(0, 6);
+  const others = items.slice(6).reduce((a, b) => a + b.perTwin, 0);
+  const total = t;
+  const bd = document.getElementById("breakdown");
+  bd.innerHTML = "";
+  const rows = visible.map(it => ({ name: it.name, cost: it.perTwin }));
+  if (others > 0.001) rows.push({ name: "Everything else", cost: others });
+  for (const r of rows) {
+    const pct = (r.cost / total) * 100;
+    const row = document.createElement("div");
+    row.innerHTML = `
+      <div class="breakdown-row">
+        <div class="breakdown-name">${r.name}</div>
+        <div class="breakdown-val">${fmt$(r.cost)}</div>
+        <div class="breakdown-pct">${pct.toFixed(0)}%</div>
+        <div class="breakdown-bar-track"><div class="breakdown-bar-fill" style="width:${Math.min(100, pct)}%"></div></div>
+      </div>
+    `;
+    bd.appendChild(row);
+  }
+
+  // Update narrative description below
+  renderNarrative();
+}
+
+// =========================================================================
+// Scope input handlers
+// =========================================================================
+function setFill(el) {
+  const min = parseFloat(el.min) || 0;
+  const max = parseFloat(el.max) || 100;
+  const pct = ((parseFloat(el.value) - min) / (max - min)) * 100;
+  el.style.setProperty('--fill', pct + '%');
+}
+function bindScope() {
+  const ipN = document.getElementById("ip-N");
+  const ipDays = document.getElementById("ip-days");
+  ipN.addEventListener("input", e => {
+    state.N = parseInt(e.target.value);
+    document.getElementById("sv-N").textContent = state.N;
+    setFill(ipN);
+    renderSections(); renderTotals();
+  });
+  ipDays.addEventListener("input", e => {
+    state.days = parseInt(e.target.value);
+    document.getElementById("sv-days").textContent = state.days;
+    state.active_days = Math.min(state.active_days, state.days);
+    setFill(ipDays);
+    renderSections(); renderTotals();
+  });
+  // Initial fills
+  setFill(ipN);
+  setFill(ipDays);
+}
+
+function renderPresetCosts() {
+  // Compute the cost of each preset live (don't hardcode)
+  for (const [key, p] of Object.entries(PRESETS)) {
+    const saved = { ...state };
+    Object.assign(state, p);
+    const cost = totalPerTwin();
+    Object.assign(state, saved);
+    const el = document.getElementById("cost-" + key);
+    if (el) el.textContent = "$" + cost.toFixed(2) + "/agent";
+  }
+}
+
+function bindPresets() {
+  document.querySelectorAll(".preset-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const p = PRESETS[btn.dataset.preset];
+      Object.assign(state, p);
+      // Sync UI
+      const ipN = document.getElementById("ip-N");
+      const ipDays = document.getElementById("ip-days");
+      ipN.value = state.N;
+      document.getElementById("sv-N").textContent = state.N;
+      ipDays.value = state.days;
+      document.getElementById("sv-days").textContent = state.days;
+      setFill(ipN); setFill(ipDays);
+      document.querySelectorAll(".preset-btn").forEach(b => b.classList.toggle("active", b === btn));
+      renderSections();
+      renderTotals();
+    });
+  });
+}
+
+// =========================================================================
+// Reverse estimate: enter a target cost, auto-configure the dials to hit it
+// =========================================================================
+function autoConfigureForTarget(target) {
+  const fb = document.getElementById("reverse-feedback");
+
+  // Step 1: binary search on tasks_per_day (0 to 10) to hit target
+  let lo = 0, hi = 10;
+  for (let i = 0; i < 30; i++) {
+    const mid = Math.round(((lo + hi) / 2) * 10) / 10;
+    state.tasks_per_day = mid;
+    const cost = totalPerTwin();
+    if (cost > target) hi = mid;
+    else lo = mid;
+  }
+  state.tasks_per_day = Math.round(lo * 10) / 10;
+
+  let finalCost = totalPerTwin();
+
+  // If still way too low at tasks=10, also bump conversations (max 60)
+  if (state.tasks_per_day >= 10 && finalCost < target * 0.95) {
+    state.tasks_per_day = 10;
+    let lo2 = state.interactions_per_day, hi2 = 60;
+    for (let i = 0; i < 20; i++) {
+      const mid = Math.round((lo2 + hi2) / 2);
+      state.interactions_per_day = mid;
+      const cost = totalPerTwin();
+      if (cost > target) hi2 = mid;
+      else lo2 = mid;
+    }
+    state.interactions_per_day = lo2;
+    finalCost = totalPerTwin();
+  }
+  // If still too high at tasks=0, also pull conversations down (min 1)
+  else if (state.tasks_per_day <= 0 && finalCost > target * 1.05) {
+    state.tasks_per_day = 0;
+    let lo2 = 1, hi2 = state.interactions_per_day;
+    for (let i = 0; i < 20; i++) {
+      const mid = Math.round((lo2 + hi2) / 2);
+      state.interactions_per_day = mid;
+      const cost = totalPerTwin();
+      if (cost > target) hi2 = mid;
+      else lo2 = mid;
+    }
+    state.interactions_per_day = hi2;
+    finalCost = totalPerTwin();
+  }
+
+  const diff = Math.abs(finalCost - target);
+  const within = diff < target * 0.05;
+  fb.textContent = within
+    ? `Configured to $${finalCost.toFixed(2)}/agent`
+    : `Closest reachable: $${finalCost.toFixed(2)}/agent`;
+  fb.className = "reverse-feedback " + (within ? "active" : "fail");
+}
+
+function bindReverseEstimate() {
+  const btn = document.getElementById("btn-reverse");
+  const input = document.getElementById("ip-target");
+  if (!btn || !input) return;
+
+  const run = () => {
+    const target = parseFloat(input.value);
+    const fb = document.getElementById("reverse-feedback");
+    if (isNaN(target) || target <= 0) {
+      fb.textContent = "Enter a target > 0";
+      fb.className = "reverse-feedback fail";
+      return;
+    }
+    autoConfigureForTarget(target);
+    // Refresh all UI: scope sliders need their fills updated
+    document.getElementById("ip-N").value = state.N;
+    document.getElementById("sv-N").textContent = state.N;
+    document.getElementById("ip-days").value = state.days;
+    document.getElementById("sv-days").textContent = state.days;
+    setFill(document.getElementById("ip-N"));
+    setFill(document.getElementById("ip-days"));
+    // Clear preset highlight (custom config)
+    document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
+    renderSections();
+    renderTotals();
+  };
+
+  btn.addEventListener("click", run);
+  input.addEventListener("keypress", e => { if (e.key === "Enter") run(); });
+}
+
+// =========================================================================
+// Narrative: plain-language description of current configuration
+// =========================================================================
+function renderNarrative() {
+  const el = document.getElementById("narrative");
+  if (!el) return;
+  const s = state;
+  const c = totalPerTwin();
+  const totalStudy = c * s.N;
+
+  const paragraphs = [];
+
+  // Paragraph 1: Scope + pipeline (natural reading order)
+  let p1 = `The simulation covers <strong>${s.N} employee agents</strong> over <strong>${s.days} days</strong>.`;
+
+  const pipelineActions = [];
+  if (s.framings > 0) {
+    pipelineActions.push(`receives <strong>${s.framings} ${s.framings === 1 ? "message framing" : "different message framings"}</strong> of the change`);
+  }
+  if (s.tools > 0) {
+    let tp = `experiences the rollout of <strong>${s.tools} ${s.tools === 1 ? "AI tool" : "different AI tools"}</strong>`;
+    if (s.rollouts > 0) {
+      tp += ` through <strong>${s.rollouts} ${s.rollouts === 1 ? "deployment structure" : "deployment structures"}</strong>`;
+    }
+    pipelineActions.push(tp);
+  }
+  if (s.upgrades > 0 && s.tools > 0) {
+    pipelineActions.push(`and sees <strong>${s.upgrades} ${s.upgrades === 1 ? "feature upgrade" : "feature upgrades"}</strong> to each tool over time`);
+  }
+  if (pipelineActions.length > 0) {
+    // Join naturally: A, B, C  → "A, B, and C." But the last item already has "and" prefix
+    // when there are 3 items. So we just join with commas.
+    let pipeline_sentence;
+    if (pipelineActions.length === 1) {
+      pipeline_sentence = `Each agent ${pipelineActions[0]}.`;
+    } else if (pipelineActions.length === 2) {
+      // The 2nd already starts with "and" if it's the upgrades part; otherwise add "and"
+      const a = pipelineActions[1].startsWith("and ") ? pipelineActions[1] : "and " + pipelineActions[1];
+      pipeline_sentence = `Each agent ${pipelineActions[0]} ${a}.`;
+    } else {
+      // 3 parts: first two with commas, last already has "and"
+      pipeline_sentence = `Each agent ${pipelineActions[0]}, ${pipelineActions[1]}, ${pipelineActions[2]}.`;
+    }
+    p1 += " " + pipeline_sentence;
+  }
+  paragraphs.push(p1);
+
+  // Paragraph 2: Daily behaviors (simplified, no AI work technicals)
+  const taskLbl = s.tasks_per_day === 1.0 ? "task" : "tasks";
+  let p2 = `Daily, each agent has <strong>${s.interactions_per_day} ${s.interactions_per_day === 1 ? "conversation" : "conversations"}</strong> with teammates and attempts <strong>${s.tasks_per_day.toFixed(1)} AI-assisted ${taskLbl}</strong>.`;
+  if (s.images_per_twin > 0) p2 += " Image generation is enabled.";
+  if (s.optimize_indexing_on) p2 += " Conversation indexing is optimized to keep only high-signal exchanges in memory.";
+  paragraphs.push(p2);
+
+  // Paragraph 3: Measurement and extras (simplified)
+  const measurement_parts = [];
+  if (s.surveys > 0) measurement_parts.push(`<strong>${s.surveys} ${s.surveys === 1 ? "survey round" : "survey rounds"}</strong>`);
+  if (s.interviews > 0) measurement_parts.push(`<strong>${s.interviews} ${s.interviews === 1 ? "open-ended interview" : "open-ended interviews"}</strong>`);
+
+  let p3 = "";
+  if (measurement_parts.length === 0) {
+    p3 = "The study runs no formal surveys or interviews.";
+  } else if (measurement_parts.length === 1) {
+    p3 = `The study includes ${measurement_parts[0]}.`;
+  } else {
+    p3 = `The study includes ${measurement_parts[0]} and ${measurement_parts[1]}.`;
+  }
+
+  const extras_on = [];
+  if (s.indicators_on) extras_on.push("daily behavior indicators");
+  if (s.tool_scenarios_on) extras_on.push("unique AI moments per agent");
+  if (s.team_dynamics_on) extras_on.push("team-level dynamics");
+  if (s.influence_on) extras_on.push("influence networks");
+  if (s.adoption_on) extras_on.push("adoption classification");
+  if (s.friction_on) extras_on.push("tool-use friction");
+  if (s.skill_diffusion_on) extras_on.push("skill diffusion");
+  if (s.emotional_dynamics_on) extras_on.push("emotional dynamics");
+  if (extras_on.length > 0) {
+    p3 += ` Additional measurement enabled: <strong>${extras_on.join(", ")}</strong>.`;
+  }
+  paragraphs.push(p3);
+
+  // Paragraph 4: Total cost
+  paragraphs.push(`Total study cost: <strong>$${Math.round(totalStudy).toLocaleString()}</strong> at <strong>$${c.toFixed(2)} per employee agent</strong>.`);
+
+  el.innerHTML = paragraphs.map(p => `<p>${p}</p>`).join("");
+}
+
+// Hook narrative into renderTotals via direct addition (cleaner than wrapping)
+
+bindScope();
+bindPresets();
+bindReverseEstimate();
+renderPresetCosts();
+renderSections();
+renderTotals();
+</script>
+
+</body>
+</html>
